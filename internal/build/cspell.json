@@ -3,11 +3,15 @@
   "language": "en-GB",
   "words": [
     "apptly",
+    "citty",
     "cloudflare",
     "EDITMSG",
     "golangci",
     "gofumpt",
     "kagal",
-    "mtls"
+    "mtls",
+    "publint",
+    "unbuild",
+    "wrangler"
   ]
 }
