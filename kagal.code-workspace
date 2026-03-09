@@ -1,0 +1,48 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		// Editor
+		"editor.codeActionsOnSave": {
+			"source.fixAll.eslint": "always"
+		},
+		"editor.quickSuggestions": {
+			"strings": true,
+			"other": true,
+			"comments": true
+		},
+		// Explorer
+		"files.exclude": {
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/Thumbs.db": true,
+			"**/node_modules": true
+		},
+		// cSpell
+		"cSpell.language": "en-GB",
+		"cSpell.import": [
+			"internal/build/cspell.json"
+		],
+		// ESLint
+		"eslint.format.enable": true,
+		"eslint.useFlatConfig": true,
+		// Go
+		"go.useLanguageServer": true,
+		"gopls": {
+			"formatting.gofumpt": true
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"christian-kohler.path-intellisense",
+			"dbaeumer.vscode-eslint",
+			"editorconfig.editorconfig",
+			"golang.go",
+			"streetsidesoftware.code-spell-checker",
+			"streetsidesoftware.code-spell-checker-british-english"
+		]
+	}
+}
