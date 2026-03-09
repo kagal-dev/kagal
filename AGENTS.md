@@ -7,13 +7,58 @@ with code in the Kagal monorepo.
 ## Project Overview
 
 Kagal (Sumerian for "Great Gate") is a
-library/framework for building agent fleet management
-platforms on Cloudflare Workers.
+library for building agent fleet management
+platforms on Cloudflare Workers. It provides primitives
+for connecting thousands of agents behind NAT to a
+central control plane: persistent control channels,
+on-demand SSH tunnels, task dispatch, mTLS
+authentication, and clone detection.
+
+## Monorepo Structure
+
+```bash
+kagal/
+├── packages/
+│   ├── @kagal-worker/         # Durable Object library
+│   ├── @kagal-server/         # Server/frontend library
+│   └── @kagal-agent/          # Agent CLI + library (citty)
+├── apps/
+│   ├── demo-worker/           # Demo: DO worker (wrangler)
+│   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
+│   ├── demo-hono/             # Demo: Hono frontend
+│   └── demo-nuxt/             # Demo: Nuxt 4 (planned)
+├── .github/workflows/         # CI/CD
+├── go.mod                     # Go module: kagal.dev (planned)
+├── pnpm-workspace.yaml        # pnpm workspace config
+└── vitest.workspace.ts        # Test configuration
+```
+
+### npm Packages
+
+- `@kagal/worker` — Durable Object library (Agent DO,
+  Supervisor DO)
+- `@kagal/server` — Server library for frontends
+- `@kagal/agent` — TypeScript agent CLI and library
+  (citty)
+- **Demo apps** live under `apps/`
+
+A Go module (`kagal.dev`) is planned for after the
+TypeScript packages stabilise.
+
+## Common Commands
+
+```bash
+pnpm build        # Build all npm packages
+pnpm clean        # Clean all npm packages
+pnpm lint         # Lint all npm packages
+pnpm test         # Test all npm packages
+pnpm dev          # Run demo apps locally
+```
 
 ## Code Style Guidelines
 
-All packages follow conventions enforced by
-.editorconfig and ESLint/golangci-lint:
+All packages follow these conventions (enforced by
+.editorconfig and ESLint):
 
 ### TypeScript/JavaScript
 
@@ -22,32 +67,155 @@ All packages follow conventions enforced by
 - **Charset**: UTF-8
 - **Quotes**: Single quotes for strings
 - **Semicolons**: Always use semicolons
+- **Brace Style**: 1tbs (one true brace style)
+- **Arrow Functions**: Always use parentheses
+- **Line Length**: Max 78 characters preferred
+- **Comments**: Use TSDoc format for documentation
 - **Module System**: ES modules (`type: "module"`)
+- **Naming**: camelCase for variables/functions,
+  PascalCase for types/interfaces
 - **Final Newline**: Always insert
 - **Trailing Whitespace**: Always trim
 
-### Go
+## Development Practices
 
-- **Formatting**: gofmt (tabs, standard Go style)
-- **Naming**: Follow standard Go conventions
-- **Imports**: Grouped (stdlib, external, internal)
-- **Error Handling**: Always check errors
+### Pre-commit Checklist (MANDATORY)
 
-## Git Workflow
+Before committing any changes, ALWAYS run:
 
-- Always use `-s` flag for sign-off
-- No AI advertising in commit messages
+1. `pnpm precommit` for npm packages (if changed)
+
+2. Fix any issues found
+
+3. Update AGENTS.md if guidelines change
+
+### DO
+
+- Use workspace protocol (`workspace:^`) for internal
+  npm dependencies
+- Write tests for all new functionality
+- Use `git -C <path>` instead of `cd <path> && git`
+- Check existing code patterns before creating new ones
+- Keep packages focused on their specific purpose
+- Follow strict TypeScript practices
+
+### DON'T
+
+- Create files unless necessary — prefer editing
+  existing ones
+- Add external dependencies without careful
+  consideration
+- Ignore TypeScript errors or ESLint warnings
+- Mix concerns between packages
+- Use relative imports between npm packages (use
+  workspace deps)
 - **NEVER commit without explicitly listing files**
 - **NEVER use `git add .` or `git add -A`**
+- **NEVER rely on the staging area — always list files
+  explicitly**
 - **NEVER DELETE FILES WITHOUT EXPLICIT PERMISSION**
-- Use `git -C` instead of `cd` for operations on
-  other paths
+
+### Git Workflow
+
+#### Commits
+
+- Always use `-s` flag for sign-off
+- Write clear messages describing actual changes
+- No AI advertising in commit messages
+- Focus commit messages on the final result, not the
+  iterations
+- Prefer `git -C` over `cd` for operations on other
+  paths
+
+#### Direct Commits (MANDATORY)
+
+ALWAYS list files explicitly in the commit command.
+Use `git add` only for new/untracked files, then pass
+all files (new and modified) to `git commit`.
 
 ```bash
-# ALWAYS specify files directly in the commit command
-git commit -sF .git/COMMIT_EDITMSG file1.ts file2.ts
+# Stage new files, then commit with explicit file list
+git add src/new-file.ts
+git commit -sF .tmp/commit-add-agent-do.txt -- src/new-file.ts src/changed.ts
 ```
 
-## Licence
+Temporary message files use a shared prefix with a
+meaningful slug. The shared prefix allows composing
+multiple messages in parallel and easy clean-up.
 
-[MIT](LICENCE.txt)
+- Commit messages: `.tmp/commit-<slug>.txt`
+- PR descriptions: `.tmp/pr-<slug>.md`
+
+#### Commit Message Guidelines
+
+- First line: type(scope): brief description (50 chars)
+- Blank line
+- Body: what and why, not how (wrap at 72 chars)
+- Use bullet points for multiple changes
+- Reference issues/PRs when relevant
+
+## Workspace Dependencies
+
+When referencing other npm packages in the monorepo:
+
+```json
+{
+  "dependencies": {
+    "@kagal/worker": "workspace:^"
+  }
+}
+```
+
+## Testing Guidelines
+
+- npm packages use Vitest for testing
+- Test files: `*.test.ts` / `*.spec.ts`
+
+## Build Systems
+
+- **unbuild**: Used by all npm packages
+
+## Common Dependencies
+
+- **TypeScript**: strict mode enabled
+- **Vitest**: for npm testing
+- **ESLint**: Via @poupe/eslint-config
+- **Node.js**: >= 20.19.2
+- **pnpm**: >= 10.10.0
+
+## Package-Specific Notes
+
+- `@kagal/worker` — Durable Object library
+  (WebSocket, task queue, nonce chain)
+- `@kagal/server` — Server library for fleet
+  management frontends
+- `@kagal/agent` — Agent CLI and library (citty)
+
+Go packages (`pkg/agent`, `cmd/kagal`, `cmd/kagalctl`,
+`cmd/kagal-ssh-proxy`) are planned.
+
+## Debugging Tips
+
+1. **Build Issues**: Run `pnpm clean` then `pnpm build`
+
+2. **Type Errors**: Check `tsconfig.json` references
+
+3. **Test Failures**: Use `--reporter=verbose` (vitest)
+
+4. **Dependency Issues**: Verify workspace links with
+   `pnpm list`
+
+## Claude Code Specific Instructions
+
+- **CRITICAL: Always enumerate files explicitly in git
+  commit commands**
+- **NEVER use bare `git commit` without file
+  arguments**
+- **Check `git status --porcelain` before every
+  commit**
+- NEVER apologise or explain why you did something
+  wrong
+- Fix issues immediately without commentary
+- Stay focused on the task at hand
+- Use `git -C` instead of `cd` for git operations on
+  other paths
