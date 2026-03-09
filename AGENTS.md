@@ -7,7 +7,7 @@ with code in the Kagal monorepo.
 ## Project Overview
 
 Kagal (Sumerian for "Great Gate") is a
-library/framework for building agent fleet management
+library for building agent fleet management
 platforms on Cloudflare Workers.
 
 ## Code Style Guidelines
