@@ -11,9 +11,6 @@ importers:
       '@poupe/eslint-config':
         specifier: ^0.8.2
         version: 0.8.2(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
       eslint:
         specifier: ^9.30.0
         version: 9.39.4(jiti@2.6.1)
@@ -42,9 +39,6 @@ importers:
       '@types/node':
         specifier: ^20.19.0
         version: 20.19.37
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
       eslint:
         specifier: ^9.30.0
         version: 9.39.4(jiti@2.6.1)
@@ -78,9 +72,6 @@ importers:
       '@types/node':
         specifier: ^20.19.0
         version: 20.19.37
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
       eslint:
         specifier: ^9.30.0
         version: 9.39.4(jiti@2.6.1)
@@ -114,9 +105,6 @@ importers:
       '@types/node':
         specifier: ^20.19.0
         version: 20.19.37
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
       eslint:
         specifier: ^9.30.0
         version: 9.39.4(jiti@2.6.1)
@@ -151,9 +139,6 @@ packages:
 
   '@cloudflare/workers-types@4.20260307.1':
     resolution: {integrity: sha512-0PvWLVVD6Q64V/XhollYtc8H35Vxm2rZi8bkZbEr3lK+mNgd2FBBVhlZ6A3saAUq3giRF4US/UfU/3a8i1PEcg==}
-
-  '@epic-web/invariant@1.0.0':
-    resolution: {integrity: sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -1060,11 +1045,6 @@ packages:
 
   core-js-compat@3.48.0:
     resolution: {integrity: sha512-OM4cAF3D6VtH/WkLtWvyNC56EZVXsZdU3iqaMG2B4WvYrlqU831pc4UtG5yp0sE9z8Y02wVN7PjW5Zf9Gt0f1Q==}
-
-  cross-env@10.1.0:
-    resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
-    engines: {node: '>=20'}
-    hasBin: true
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -2331,8 +2311,6 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260307.1': {}
 
-  '@epic-web/invariant@1.0.0': {}
-
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
 
@@ -3057,11 +3035,6 @@ snapshots:
   core-js-compat@3.48.0:
     dependencies:
       browserslist: 4.28.1
-
-  cross-env@10.1.0:
-    dependencies:
-      '@epic-web/invariant': 1.0.0
-      cross-spawn: 7.0.6
 
   cross-spawn@7.0.6:
     dependencies:

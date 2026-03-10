@@ -41,9 +41,10 @@
     "clean": "rimraf dist node_modules",
     "dev": "vitest watch",
     "dev:prepare": "unbuild --stub",
-    "lint": "cross-env DEBUG=eslint:eslint eslint --fix .",
+    "lint": "eslint --fix .",
+    "lint:check": "eslint .",
     "precommit": "run-s lint type-check build test",
-    "prepack": "run-s lint type-check build test publint",
+    "prepack": "run-s lint:check type-check build test publint",
     "publint": "publint",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
@@ -55,7 +56,6 @@
   "devDependencies": {
     "@poupe/eslint-config": "^0.8.2",
     "@types/node": "^20.19.0",
-    "cross-env": "^10.1.0",
     "eslint": "^9.30.0",
     "npm-run-all2": "^8.0.4",
     "publint": "^0.3.12",
