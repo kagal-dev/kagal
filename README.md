@@ -1,6 +1,6 @@
 # Kagal
 
-> *Kagal* (𒅅𒃲) — Sumerian for "Great Gate"
+> *Kagal* (𒆍𒃲, Ká.Gal) — Sumerian for "Great Gate".
 
 A library for managing agent fleets over Cloudflare's
 edge.

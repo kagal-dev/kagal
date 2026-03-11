@@ -2,9 +2,10 @@
 
 # Kagal — Design Document
 
-> *Kagal* (𒅅𒃲, Ká.Gal) — Sumerian for "Great Gate".
-> A library for managing agent fleets over
-> Cloudflare's edge.
+> *Kagal* (𒆍𒃲, Ká.Gal) — Sumerian for "Great Gate".
+
+A library for managing agent fleets over
+Cloudflare's edge.
 
 ## Overview
 
@@ -199,6 +200,7 @@ export { kagalAuth } from './middleware/auth';
 
 export type {
   KagalServerEnv,
+  KagalRoute,
   KagalRouter,
   KagalServerConfig,
 } from './types';
@@ -238,17 +240,22 @@ interface KagalServerConfig {
   extractRole?: (subjectDN: string) => 'agent' | 'operator';
 }
 
-interface KagalRoute {
+interface KagalRoute<E extends KagalServerEnv = KagalServerEnv> {
   method: string;
   path: string;
-  handler: (request: Request, env: Env) => Promise<Response>;
+  handler: (
+    request: Request,
+    env: E,
+    ctx: ExecutionContext,
+  ) => Promise<Response>;
 }
 
-interface KagalRouter {
-  routes: KagalRoute[];
+interface KagalRouter<E extends KagalServerEnv = KagalServerEnv> {
+  routes: KagalRoute<E>[];
   handle: (
     request: Request,
-    env: Env,
+    env: E,
+    ctx: ExecutionContext,
   ) => Promise<Response | null>;
 }
 ```
@@ -312,7 +319,7 @@ const kagal = createKagalRouter();
 
 for (const route of kagal.routes) {
   app.on(route.method, `/kagal${route.path}`, (c) =>
-    route.handler(c.req.raw, c.env)
+    route.handler(c.req.raw, c.env, c.executionCtx)
   );
 }
 
@@ -328,9 +335,9 @@ import { createKagalRouter } from '@kagal/server';
 const kagal = createKagalRouter();
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const kagalResponse = await kagal.handle(
-      request, env
+      request, env, ctx
     );
     if (kagalResponse) return kagalResponse;
 
