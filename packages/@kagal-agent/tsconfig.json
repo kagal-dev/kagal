@@ -11,9 +11,7 @@
     "declaration": true
   },
   "include": [
-    "src",
-    "build.config.ts",
-    "vitest.config.ts"
+    "src"
   ],
   "exclude": [
     "node_modules",
