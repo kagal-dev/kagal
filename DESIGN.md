@@ -13,7 +13,7 @@ Kagal is a **library** for building fleet
 management platforms on Cloudflare Workers. It provides
 the primitives for connecting thousands of agents behind
 NAT to a central control plane: persistent control
-channels, on-demand SSH tunnels, task dispatch, mTLS
+channels, on-demand tunnels, task dispatch, mTLS
 authentication, and clone detection — all running on
 Cloudflare's edge with zero idle cost.
 
@@ -21,7 +21,7 @@ Kagal ships as three npm packages:
 
 - **`@kagal/worker`** — Durable Object library. Exports
   Agent DO (per-agent WebSocket, SQLite task queue,
-  nonce chain, SSH splice) and Supervisor DO (fleet
+  nonce chain, tunnel splice) and Supervisor DO (fleet
   queries, agent registry).
 - **`@kagal/server`** — Server library for frontends.
   Exports auth middleware, route handlers, and
@@ -84,16 +84,16 @@ that scales to unlimited agents at ~$5/month.
 │                          │ │ - Hibernating WSS   │ │ │
 │                          │ │ - SQLite task queue │ │ │
 │                          │ │ - Nonce chain state │ │ │
-│                          │ │ - SSH tunnel splice │ │ │
+│                          │ │ - Tunnel splice     │ │ │
 │                          │ └─────────────────────┘ │ │
 │                          │                         │ │
 │                          └─────────────────────────┘ │
 └──────────────────────────────────────────────────────┘
-       ▲ WSS (control)       ▲ WSS (ssh)     ▲ HTTPS
+       ▲ WSS (control)       ▲ WSS (tunnel)  ▲ HTTPS
        │                     │               │
   ┌────┴──────┐        ┌─────┴────┐    ┌─────┴──────┐
   │ Agent     │        │ Agent    │    │ Operator   │
-  │ @kagal/   │        │ (SSH     │    │ (browser / │
+  │ @kagal/   │        │ (tunnel  │    │ (browser / │
   │  agent    │        │  active) │    │  kagalctl) │
   └───────────┘        └──────────┘    └────────────┘
 ```
@@ -102,13 +102,13 @@ that scales to unlimited agents at ~$5/month.
 
 | Kagal provides | Consumer provides |
 |----------------|-------------------|
-| Agent DO class (WebSocket, task queue, nonce chain, SSH splice) | Worker entry point and HTTP router |
+| Agent DO class (WebSocket, task queue, nonce chain, tunnel splice) | Worker entry point and HTTP router |
 | Supervisor DO (fleet queries, agent registry) | Application-specific coordination logic |
 | Private CA lifecycle + mTLS auth | Cert issuance callback |
 | Agent registry (KV-backed) | KV namespace binding |
 | TypeScript agent library (control loop, reconnect, task dispatch) | Task handler implementations |
 | Clone detection + quarantine protocol | Quarantine resolution UI/workflow |
-| SSH ProxyCommand helper (planned) | SSH key management |
+| Tunnel splice (port forwarding, SSH) | Tunnel client (ProxyCommand, etc.) |
 
 Application-specific storage (firmware, backups) is
 **not** part of core — consumers implement their own
@@ -121,7 +121,7 @@ R2/D1/KV routes.
 The Durable Object library. Exports two DO classes:
 
 - **Agent DO** — One instance per agent. Manages
-  WebSocket, task queue, nonce chain, SSH splice.
+  WebSocket, task queue, nonce chain, tunnel splice.
 - **Supervisor DO** — Singleton. Fleet queries,
   agent registry, cross-agent operations.
 
@@ -167,7 +167,7 @@ GET    /agents/:id/tasks     — list tasks (operator)
 GET    /agents/:id/tasks/:task_id — get task status
 POST   /agents/:id/claim     — claim a quarantined agent
 WS     /ws/:id               — agent control WebSocket
-WS     /agents/:id/ssh       — SSH data WebSocket
+WS     /agents/:id/tunnel    — tunnel data WebSocket
 GET    /pki/ca.crt           — download root CA cert
 ```
 
@@ -224,7 +224,7 @@ first releases.
 A Go module is planned for after the TypeScript packages
 stabilise. It will provide `pkg/agent` (agent library),
 `cmd/kagal` (reference agent), `cmd/kagalctl` (fleet
-management CLI), and `cmd/kagal-ssh-proxy` (SSH
+management CLI), and `cmd/kagal-ssh-proxy` (tunnel
 ProxyCommand helper).
 
 ---
@@ -391,9 +391,9 @@ See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 - **Task dispatch**: On connect/reconnect, all `queued`
   tasks are dispatched. Tasks in `dispatched` state for
   over 5 minutes are reset to `queued` on reconnect.
-- **SSH splice**: Two tagged WebSockets
-  (`ssh-agent` + `ssh-operator`). Binary frames
-  forwarded bidirectionally.
+- **Tunnel splice**: Two tagged WebSockets
+  (agent-side + client-side). Binary frames forwarded
+  bidirectionally. SSH is the primary use case.
 - **Supervisor notifications**: On connect, disconnect,
   and status changes, notifies the Supervisor DO to
   update fleet state. Trivial per-agent KV updates
@@ -446,24 +446,31 @@ the hibernation cost model intact.
 
 ---
 
-## SSH Tunnels
+## Tunnels
 
-On-demand, not persistent. Kagal provides the splice;
-the consumer provides the trigger.
+On-demand data channels for forwarding TCP ports
+through the Agent DO. The DO splices a pair of tagged
+WebSockets (agent-side + client-side) bidirectionally.
+Tunnels are not persistent — they tear down when
+either side closes.
 
-### Flow
+### Port Forwarding Flow
 
 1. Operator calls `POST /agents/:id/tasks` with
-   `{"action": "ssh_open"}`
+   `{"action": "tunnel_open", "params": {"port": N}}`
 2. DO dispatches to agent via control WebSocket
-3. Agent opens second WebSocket to
-   `/agents/:id/ssh?role=agent`
-4. Agent dials `localhost:22`, splices TCP ↔ WebSocket
-5. Operator connects via ProxyCommand to
-   `/agents/:id/ssh?role=operator`
+3. Agent opens a data WebSocket to
+   `/agents/:id/tunnel?role=agent`
+4. Agent dials `localhost:N`, splices TCP ↔ WebSocket
+5. Client connects via
+   `/agents/:id/tunnel?role=client`
 6. DO splices the two WebSockets bidirectionally
+7. Tunnel closes when either side disconnects
 
-### SSH Config (Operator)
+### SSH Tunnels
+
+SSH is port forwarding to `:22` with a
+`ProxyCommand` helper for transparent `ssh` usage.
 
 Uses `kagal-ssh-proxy` (planned Go binary) as
 ProxyCommand:
@@ -495,7 +502,7 @@ Host kagal-*
 The key insight: **WebSocket Hibernation** means idle
 agents cost nothing. `setWebSocketAutoResponse` handles
 pings without waking the DO. The DO only incurs charges
-when actively processing a task or SSH session.
+when actively processing a task or tunnel session.
 
 ### Included Monthly Quotas
 
@@ -579,11 +586,12 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 6. `@kagal/server`: Agent onboarding (bootstrap JWT,
    cert issuance callback)
 
-### Phase 3: SSH Tunnels
+### Phase 3: Tunnels
 
-1. `@kagal/worker`: SSH WebSocket splice in DO
-2. `@kagal/agent`: SSH handler
-3. Test: full SSH session through the relay
+1. `@kagal/worker`: Tunnel WebSocket splice in DO
+2. `@kagal/agent`: Tunnel handler (port forwarding)
+3. SSH ProxyCommand helper
+4. Test: full SSH session through the relay
 
 ### Phase 4: Go Agent (Planned)
 

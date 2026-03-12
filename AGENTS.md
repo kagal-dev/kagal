@@ -11,7 +11,7 @@ library for building agent fleet management
 platforms on Cloudflare Workers. It provides primitives
 for connecting thousands of agents behind NAT to a
 central control plane: persistent control channels,
-on-demand SSH tunnels, task dispatch, mTLS
+on-demand tunnels, task dispatch, mTLS
 authentication, and clone detection.
 
 ## Monorepo Structure
