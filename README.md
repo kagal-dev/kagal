@@ -13,6 +13,14 @@ edge.
 | [`@kagal/server`](packages/@kagal-server) | Server library for fleet management frontends |
 | [`@kagal/agent`](packages/@kagal-agent) | Agent CLI and library |
 
+## Provenance
+
+All `@kagal/*` packages are published with
+[npm provenance](https://docs.npmjs.com/generating-provenance-statements)
+via GitHub Actions OIDC — no long-lived tokens involved.
+Each published version is cryptographically linked to
+its source commit and build workflow in this repository.
+
 ## Licence
 
 [MIT](LICENCE.txt)
