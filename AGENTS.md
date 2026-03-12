@@ -20,6 +20,7 @@ authentication, and clone detection.
 kagal/
 ├── packages/
 │   ├── @kagal-worker/         # Durable Object library
+│   │   └── sql/               # SQLite schema
 │   ├── @kagal-server/         # Server/frontend library
 │   └── @kagal-agent/          # Agent CLI + library (citty)
 ├── apps/
@@ -182,17 +183,6 @@ When referencing other npm packages in the monorepo:
 - **ESLint**: Via @poupe/eslint-config
 - **Node.js**: >= 20.19.2
 - **pnpm**: >= 10.10.0
-
-## Package-Specific Notes
-
-- `@kagal/worker` — Durable Object library
-  (WebSocket, task queue, nonce chain)
-- `@kagal/server` — Server library for fleet
-  management frontends
-- `@kagal/agent` — Agent CLI and library (citty)
-
-Go packages (`pkg/agent`, `cmd/kagal`, `cmd/kagalctl`,
-`cmd/kagal-ssh-proxy`) are planned.
 
 ## Publishing
 

@@ -125,65 +125,17 @@ The Durable Object library. Exports two DO classes:
 - **Supervisor DO** — Singleton. Fleet queries,
   agent registry, cross-agent operations.
 
-### `@kagal/worker` Exports
-
-```typescript
-export { KagalAgent } from './do/agent';
-export { KagalSupervisor } from './do/supervisor';
-export { createKagalHandler } from './handler';
-
-export type {
-  KagalEnv,
-  KagalWorkerConfig,
-  AgentIdentity,
-  AgentMeta,
-  Task,
-  ServerMessage,
-  AgentMessage,
-} from './types';
-```
-
-### `KagalEnv` — Required Bindings
-
-```typescript
-export interface KagalEnv {
-  // Required: Durable Object namespace for KagalAgent
-  KAGAL_AGENT: DurableObjectNamespace;
-
-  // Required: Durable Object namespace for Supervisor
-  KAGAL_SUPERVISOR: DurableObjectNamespace;
-
-  // Required: KV namespace for agent registry
-  AGENT_INDEX: KVNamespace;
-}
-```
+Type definitions and interfaces are in
+[`packages/@kagal-worker/src/types.ts`][worker-types].
 
 The consumer's DO Worker env extends `KagalEnv` with
 their own bindings. The consumer's frontend Worker
 extends `KagalServerEnv` (a `Fetcher` service binding
 to the DO Worker).
 
-### `KagalWorkerConfig` — DO Worker Configuration
-
-Passed to `createKagalHandler()`. Configures lifecycle
-hooks and protocol parameters for the DO Worker.
-
-```typescript
-interface KagalWorkerConfig {
-  hooks?: KagalHooks;
-  nonceGracePeriod?: number;  // Default: 60
-}
-
-interface KagalHooks {
-  onAgentConnect?: (agentID: string, meta: AgentMeta) => Promise<void>;
-  onAgentDisconnect?: (agentID: string) => Promise<void>;
-  onAgentError?: (agentID: string, error: Error) => Promise<void>;
-  onQuarantine?: (agentID: string, reason: string) => Promise<void>;
-  onClaim?: (agentID: string, claimedBy: string) => Promise<void>;
-  onTaskResult?: (agentID: string, task: Task) => Promise<void>;
-  onStatus?: (agentID: string, status: Record<string, unknown>) => Promise<void>;
-}
-```
+`KagalWorkerConfig` is passed to
+`createKagalHandler()`. It configures lifecycle hooks
+and protocol parameters for the DO Worker.
 
 ---
 
@@ -192,73 +144,14 @@ interface KagalHooks {
 The server library for building fleet management
 frontends. Runs in the consumer's frontend Worker.
 
-### `@kagal/server` Exports
+Type definitions and interfaces are in
+[`packages/@kagal-server/src/types.ts`][server-types].
 
-```typescript
-export { createKagalRouter } from './router';
-export { kagalAuth } from './middleware/auth';
-
-export type {
-  KagalServerEnv,
-  KagalRoute,
-  KagalRouter,
-  KagalServerConfig,
-} from './types';
-```
-
-### `KagalServerEnv` — Required Bindings
-
-```typescript
-export interface KagalServerEnv {
-  // Required: service binding to the DO Worker
-  KAGAL_WORKER: Fetcher;
-}
-```
-
-### `createKagalRouter(config)` — Route Factory
-
-Returns a `KagalRouter` the consumer mounts into their
-Worker. Provides both a route list for framework
-adapters and a direct `handle()` for raw fetch
-handlers. Forwards requests to the DO Worker via the
-service binding.
-
-```typescript
-interface KagalServerConfig {
-  // Service binding to the DO Worker.
-  // Default: env.KAGAL_WORKER
-  binding?: string;
-
-  // Accept expired but otherwise valid certs.
-  // Default: true (offline-resilient)
-  allowExpiredCerts?: boolean;
-
-  // Extract agent_id from cert subject DN.
-  extractAgentID?: (subjectDN: string) => string | null;
-
-  // Determine role from cert subject DN.
-  extractRole?: (subjectDN: string) => 'agent' | 'operator';
-}
-
-interface KagalRoute<E extends KagalServerEnv = KagalServerEnv> {
-  method: string;
-  path: string;
-  handler: (
-    request: Request,
-    env: E,
-    ctx: ExecutionContext,
-  ) => Promise<Response>;
-}
-
-interface KagalRouter<E extends KagalServerEnv = KagalServerEnv> {
-  routes: KagalRoute<E>[];
-  handle: (
-    request: Request,
-    env: E,
-    ctx: ExecutionContext,
-  ) => Promise<Response | null>;
-}
-```
+`createKagalRouter(config)` returns a `KagalRouter`
+the consumer mounts into their Worker. Provides both
+a route list for framework adapters and a direct
+`handle()` for raw fetch handlers. Forwards requests
+to the DO Worker via the service binding.
 
 Lifecycle hooks and DO-level configuration live in
 `KagalWorkerConfig` (see `@kagal/worker` above).
@@ -283,68 +176,15 @@ are **not** part of the core router.
 
 ### Integration Examples
 
-#### DO Worker (hosts the Durable Objects)
+See the demo applications under `apps/`:
 
-```typescript
-// demo-worker/src/index.ts
-import {
-  KagalAgent,
-  KagalSupervisor,
-  createKagalHandler,
-} from '@kagal/worker';
-
-// Wrangler requires DO classes exported from the Worker
-export { KagalAgent, KagalSupervisor };
-
-export default {
-  fetch: createKagalHandler({
-    hooks: {
-      async onAgentConnect(agentID, meta) {
-        console.log(`agent ${agentID} connected`);
-      },
-    },
-  }),
-};
-```
-
-#### Frontend Worker (Hono)
-
-```typescript
-// demo-hono/src/index.ts
-import { Hono } from 'hono';
-import { createKagalRouter } from '@kagal/server';
-
-const app = new Hono<{ Bindings: Env }>();
-const kagal = createKagalRouter();
-
-for (const route of kagal.routes) {
-  app.on(route.method, `/kagal${route.path}`, (c) =>
-    route.handler(c.req.raw, c.env, c.executionCtx)
-  );
-}
-
-export default app;
-```
-
-#### Frontend Worker (raw fetch handler)
-
-```typescript
-// demo-vanilla/src/index.ts
-import { createKagalRouter } from '@kagal/server';
-
-const kagal = createKagalRouter();
-
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const kagalResponse = await kagal.handle(
-      request, env, ctx
-    );
-    if (kagalResponse) return kagalResponse;
-
-    return new Response('Not Found', { status: 404 });
-  },
-};
-```
+- **`demo-worker/`** — DO Worker hosting Agent and
+  Supervisor DOs. Re-exports the DO classes and uses
+  `createKagalHandler()` as the fetch handler.
+- **`demo-hono/`** — Frontend Worker using Hono.
+  Mounts `kagal.routes` into the Hono app.
+- **`demo-vanilla/`** — Minimal frontend using raw
+  fetch. Uses `kagal.handle()` as a catch-all.
 
 The frontend Worker's `Env` includes a `Fetcher`
 service binding to the DO Worker. `createKagalRouter`
@@ -358,40 +198,8 @@ TypeScript agent library and CLI built with citty.
 Manages the control WebSocket, nonce rotation, task
 execution, and reconnection.
 
-### `@kagal/agent` Exports
-
-```typescript
-export { KagalConnect } from './connect';
-
-export type {
-  KagalConnectConfig,
-  TaskHandler,
-} from './types';
-```
-
-### Library API
-
-```typescript
-import { KagalConnect } from '@kagal/agent';
-
-const agent = new KagalConnect({
-  serverURL: 'https://fleet.example.com/kagal',
-  agentID: 'agent-001',
-  certPath: './agent.crt',
-  keyPath: './agent.key',
-});
-
-agent.registerTask('reboot', async (ctx, params) => {
-  return { status: 'ok' };
-});
-
-agent.setStatusFunc(() => ({
-  version: '1.0.0',
-  uptime: process.uptime(),
-}));
-
-await agent.run();
-```
+Type definitions and interfaces are in
+[`packages/@kagal-agent/src/types.ts`][agent-types].
 
 ### CLI
 
@@ -433,28 +241,31 @@ its Agent DO.
   ping/pong without waking the DO (zero cost).
 - **Reconnection**: Exponential backoff with jitter:
   1s → 2s → 4s → … → max 300s. Reset on success.
-- **Messages**: JSON text frames.
+- **Messages**: protobuf-es encoded binary frames.
+  Heartbeats (ping/pong) remain as WebSocket protocol
+  frames handled by `setWebSocketAutoResponse`.
 
 ### Message Schema
 
-```typescript
-// Server → Agent
-type ServerMessage =
-  | { type: 'task'; task_id: string; action: string;
-      params: Record<string, unknown> }
-  | { type: 'nonce'; nonce: string }
-  | { type: 'quarantine'; reason: string;
-      claim_code: string };
+Messages are defined as Protocol Buffers and encoded
+using protobuf-es. TypeScript types for messages
+(`ServerMessage`, `AgentMessage`) are generated from
+the proto definitions — not hand-written.
 
-// Agent → Server
-type AgentMessage =
-  | { type: 'hello'; nonce: string | null;
-      boot_count: number; hw_serial: string }
-  | { type: 'task_result'; task_id: string;
-      status: 'ok' | 'error';
-      data?: Record<string, unknown> }
-  | { type: 'status'; [key: string]: unknown };
-```
+The schema covers:
+
+**Server → Agent:**
+
+- `task` — dispatch a task (task_id, action, params)
+- `nonce` — rotate nonce
+- `quarantine` — quarantine with claim code
+
+**Agent → Server:**
+
+- `hello` — initial handshake (nonce, boot_count,
+  hw_serial)
+- `task_result` — task outcome (task_id, status, data)
+- `status` — periodic status update
 
 ### Connection Flow
 
@@ -486,9 +297,9 @@ The nonce chain provides **clone detection** and
 ### State
 
 Stored in the Agent DO's `nonce_state` table (see
-[Agent DO — SQLite Schema](#sqlite-schema)):
-`nonce_current`, `nonce_previous`, `rotated_at`,
-`boot_count`, `hw_serial`.
+[`schema.sql`][schema-sql]): `nonce_current`,
+`nonce_previous`, `rotated_at`, `boot_count`,
+`hw_serial`.
 
 ### Validation Logic
 
@@ -571,43 +382,7 @@ One instance per agent, containing all per-agent state.
 
 ### SQLite Schema
 
-```sql
-CREATE TABLE tasks (
-  task_id TEXT PRIMARY KEY,
-  action TEXT NOT NULL,
-  params TEXT NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'queued',
-  result TEXT,
-  error TEXT,
-  queued_at TEXT NOT NULL DEFAULT (datetime('now')),
-  dispatched_at TEXT,
-  completed_at TEXT
-);
-
-CREATE TABLE nonce_state (
-  agent_id TEXT PRIMARY KEY,
-  nonce_current TEXT NOT NULL,
-  nonce_previous TEXT,
-  rotated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  boot_count INTEGER DEFAULT 0,
-  hw_serial TEXT DEFAULT ''
-);
-
-CREATE TABLE agent_meta (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL,
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE quarantine (
-  agent_id TEXT PRIMARY KEY,
-  reason TEXT NOT NULL,
-  claim_code TEXT NOT NULL,
-  quarantined_at TEXT NOT NULL DEFAULT (datetime('now')),
-  claimed_at TEXT,
-  claimed_by TEXT
-);
-```
+See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 
 ### Key Behaviours
 
@@ -776,6 +551,12 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 ## Implementation Phases
 
+### Phase 0: Proto Schema + Codegen
+
+1. Define protobuf message schema
+2. Set up protobuf-es codegen
+3. Determine buf.build publishing strategy
+
 ### Phase 1: Core Library
 
 1. `@kagal/worker`: Agent DO with SQLite schema
@@ -814,9 +595,8 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 ### Phase 5: Polish & Publish
 
-1. Package npm modules for registry
-2. Documentation and integration guide
-3. Demo applications (vanilla, Hono, Nuxt 4)
+1. Documentation and integration guide
+2. Demo applications (vanilla, Hono, Nuxt 4)
 
 ---
 
@@ -849,3 +629,13 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 7. **Deployment Topologies**: Document single-Worker
    (all-in-one) vs. multi-Worker (service binding)
    patterns and their trade-offs for upgrade isolation.
+
+8. **Proto Schema Location**: Determine proto file
+   structure and buf.build publishing strategy for
+   the protobuf message definitions.
+
+<!-- named references -->
+[worker-types]: packages/@kagal-worker/src/types.ts
+[server-types]: packages/@kagal-server/src/types.ts
+[agent-types]: packages/@kagal-agent/src/types.ts
+[schema-sql]: packages/@kagal-worker/sql/schema.sql
