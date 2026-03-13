@@ -27,10 +27,11 @@ Kagal ships as four npm packages:
   nonce chain, tunnel splice) and Supervisor DO (fleet
   queries, agent registry).
 - **`@kagal/server`** — Server library for frontends.
-  Exports auth middleware, route handlers, and
-  integration helpers. The consumer mounts Kagal into
-  their own Worker (Hono, itty-router, Nitro, raw fetch
-  handler — whatever they prefer).
+  Exports `createKagalRouter()` (route list + catch-all
+  handler) and `kagalAuth()` for consumer routes that
+  need the same mTLS identity resolution. The consumer
+  mounts Kagal into their own Worker (Hono, itty-router,
+  Nitro, raw fetch handler — whatever they prefer).
 - **`@kagal/agent`** — TypeScript agent CLI and library
   built with citty. Manages the control WebSocket,
   nonce rotation, task execution, and reconnection.
@@ -684,9 +685,13 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
    `this.ctx.acceptWebSocket(pair[1], [tag])`,
    return `Response(null, {status:101, webSocket:pair[0]})`.
 
-2. **`kagalAuth` Middleware Contract**: Define return
-   type, behaviour for `/register`, revoked certs,
-   and missing certs.
+2. **`kagalAuth` Middleware Contract**: Returns
+   `KagalAuthResult | undefined` with shape
+   `{ agentID, role, fingerprint, certExpired }`.
+   Define behaviour for `/register` (allow unregistered
+   fingerprints), revoked certs (check
+   `revoked:<fingerprint>` in KV), and
+   `certPresented === '0'` (reject).
 
 3. **Agent Onboarding Flow**: Define bootstrap JWT
    format, OAuth2 device flow integration, and

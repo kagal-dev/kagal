@@ -49,6 +49,9 @@
     "test": "vitest run",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json"
   },
+  "dependencies": {
+    "@kagal/worker": "workspace:^"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260313.1",
     "@kagal/cross-test": "^0.1.2",

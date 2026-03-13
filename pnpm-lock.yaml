@@ -108,6 +108,10 @@ importers:
         version: 4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1))
 
   packages/@kagal-server:
+    dependencies:
+      '@kagal/worker':
+        specifier: workspace:^
+        version: link:../@kagal-worker
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260313.1
