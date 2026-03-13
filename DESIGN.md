@@ -179,7 +179,9 @@ are **not** part of the core router.
 
 ### Integration Examples
 
-See the demo applications under `apps/`:
+See the demo applications under `apps/` and
+[`docs/integration.md`][integration] for framework
+adapters (Hono, Nitro) and `wrangler.toml` templates.
 
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
@@ -379,6 +381,9 @@ New agents start without a certificate:
 4. Looks up `cert:<fingerprint>` in KV →
    `{ agent_id, role }`
 
+See [`docs/integration.md`][integration] for mTLS
+setup instructions.
+
 TBD: JWT signing authority, bootstrap endpoint
 contract, cert issuance callback interface.
 
@@ -536,6 +541,9 @@ GB-s duration (1% of quota). KV and storage are
 negligible. The fleet fits comfortably within the
 $5/month plan.
 
+See [`docs/cloudflare-limits.md`][cf-limits] for
+platform limits relevant to this architecture.
+
 ---
 
 ## Demo Structure
@@ -574,13 +582,12 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 1. `@kagal/worker`: Agent DO with SQLite schema
 2. `@kagal/worker`: Supervisor DO
-3. `@kagal/server`: Auth middleware (`kagalAuth`)
-4. `@kagal/server`: Route factory (`createKagalRouter`)
-5. `@kagal/worker`: Control WebSocket with hibernation
-6. `@kagal/worker`: Task queue
-7. `@kagal/agent`: Config, WebSocket loop, reconnection
-8. `@kagal/agent`: Task dispatcher + status reporter
-9. Integration test via demo apps
+3. `@kagal/server`: `kagalAuth` + `createKagalRouter`
+4. `@kagal/worker`: Control WebSocket with hibernation
+5. `@kagal/worker`: Task queue
+6. `@kagal/agent`: Config, WebSocket loop, reconnection
+7. `@kagal/agent`: Task dispatcher + status reporter
+8. Integration test via demo apps
 
 ### Phase 2: Nonce Chain + Clone Detection
 
@@ -654,3 +661,5 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 [proto-nonce]: proto/kagal/v1/nonce.proto
 [proto-agent]: proto/kagal/v1/agent.proto
 [proto-envelope]: proto/kagal/v1/envelope.proto
+[cf-limits]: docs/cloudflare-limits.md
+[integration]: docs/integration.md

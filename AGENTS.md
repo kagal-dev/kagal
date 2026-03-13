@@ -33,6 +33,7 @@ kagal/
 │   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
 │   ├── demo-hono/             # Demo: Hono frontend
 │   └── demo-nuxt/             # Demo: Nuxt 4 (planned)
+├── docs/                      # Reference docs (limits, integration)
 ├── .github/workflows/         # CI/CD
 ├── go.mod                     # Go module: kagal.dev
 ├── pnpm-workspace.yaml        # pnpm workspace config
