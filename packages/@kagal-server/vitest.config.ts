@@ -1,6 +1,11 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      'cloudflare:workers': '@kagal/test-utils/cloudflare-workers',
+    },
+  },
   test: {
     environment: 'node',
     globals: true,

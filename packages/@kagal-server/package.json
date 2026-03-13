@@ -55,6 +55,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260313.1",
     "@kagal/cross-test": "^0.1.2",
+    "@kagal/test-utils": "workspace:^",
     "@poupe/eslint-config": "^0.8.3",
     "@types/node": "^20.19.0",
     "eslint": "^9.39.4",
@@ -64,6 +65,9 @@
     "typescript": "~5.9.3",
     "unbuild": "3.6.1",
     "vitest": "^4.1.0"
+  },
+  "peerDependencies": {
+    "@cloudflare/workers-types": "^4.20260313.1"
   },
   "engines": {
     "node": ">= 20.19.2",
