@@ -323,6 +323,21 @@ Stored in the Agent DO's `nonce_state` table (see
   (state loss)
 - **No state** → first connect, onboarding quarantine
 
+Quarantine reasons: `hw_serial_mismatch` (clone),
+`nonce_replay` (stale boot count), or
+`nonce_mismatch_new_boot` (state loss).
+
+### Quarantine Permissions
+
+| Capability | Normal | Quarantined |
+|-----------|--------|-------------|
+| Control WebSocket | yes | yes |
+| Receive `cert_renew` task | yes | yes |
+| Receive custom tasks | yes | no |
+| SSH tunnel | yes | no |
+| Upload backups | yes | no |
+| Pull firmware | yes | no |
+
 ### Quarantine & Claim Flow
 
 Quarantine covers two cases: **onboarding** (new
@@ -347,7 +362,7 @@ confirms its identity. Both use the same claim flow:
 
 ## PKI — Private Certificate Authority
 
-Kagal manages a private CA for agent authentication.
+Kagal uses a private CA for agent authentication.
 Each agent gets one certificate with dual Extended Key
 Usage (`serverAuth` + `clientAuth`). The CA certificate
 is uploaded to Cloudflare so it can validate incoming
@@ -358,6 +373,35 @@ allowing custom CA implementations or external
 providers. A reference CA package (`@kagal/ca` or
 similar) is planned. Future: ACME support with an
 external identity token.
+
+### PKI Hierarchy
+
+```text
+┌──────────────────────┐
+│  Consumer's Root CA  │  Generated once, kept offline
+│  (offline key)       │  Consumer owns this — not Kagal
+└──────────┬───────────┘
+           │ signs
+    ┌──────┼──────────────┐
+    ▼      ▼              ▼
+  agent   agent        operator
+   .crt    .crt          .crt
+```
+
+Kagal does **not** generate or manage the CA itself.
+The consumer provides the CA — either via `@kagal/ca`
+(a planned reference implementation) or their own CA.
+Kagal only consumes the cert fields provided by
+Cloudflare's TLS termination
+(`request.cf.tlsClientAuth`).
+
+### What Kagal Reads from the Cert
+
+Cloudflare populates `request.cf.tlsClientAuth` after
+mTLS is enabled on the hostname. Kagal uses
+`certPresented`, `certVerified`, `certSubjectDN`,
+`certFingerprintSHA256`, `certNotBefore`, and
+`certNotAfter`.
 
 ### Agent Onboarding
 
@@ -535,11 +579,18 @@ messages and protocol-level pings are free.
 
 ### 2,000-Agent Estimate
 
+| Resource | Usage | Quota | % |
+|----------|-------|-------|---|
+| Worker requests | ~200K/mo | 10M | 2% |
+| DO requests | ~90K/mo | 1M | 9% |
+| DO duration | ~3,800 GB-s | 400K GB-s | 1% |
+| DO storage | ~20MB | 5 GB | <1% |
+| KV reads | ~50K/mo | 10M | <1% |
+| KV writes | ~100K/mo | 1M | 10% |
+
 2,000 connected-but-idle agents with ~10 messages/day
-each: ~90K DO requests/month (9% of quota), ~3,800
-GB-s duration (1% of quota). KV and storage are
-negligible. The fleet fits comfortably within the
-$5/month plan.
+each. The fleet fits comfortably within the $5/month
+plan.
 
 See [`docs/cloudflare-limits.md`][cf-limits] for
 platform limits relevant to this architecture.
@@ -625,7 +676,13 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 1. **WebSocket Upgrade Mechanics**: Document the
    canonical pattern for upgrading HTTP → WebSocket
-   and handing to the DO.
+   and handing to the DO. Expected pattern:
+   Worker receives upgrade → derives DO stub via
+   `env.KAGAL_AGENT.get(idFromName(agentId))` →
+   forwards via `stub.fetch(request)` → inside DO's
+   `fetch()`: `new WebSocketPair()`,
+   `this.ctx.acceptWebSocket(pair[1], [tag])`,
+   return `Response(null, {status:101, webSocket:pair[0]})`.
 
 2. **`kagalAuth` Middleware Contract**: Define return
    type, behaviour for `/register`, revoked certs,
@@ -633,15 +690,18 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 3. **Agent Onboarding Flow**: Define bootstrap JWT
    format, OAuth2 device flow integration, and
-   `POST /register` contract.
+   `POST /register` contract (request body, response
+   shape, what gets written to KV).
 
 4. **First-Connect Nonce Initialisation**: Define
    whether nonce state is created on registration or
-   first WebSocket connect.
+   first WebSocket connect, and whether the DO sends
+   `{ type: 'nonce' }` as the first message.
 
 5. **Certificate Lifecycle**: Define cert issuance
-   callback interface, `cert_renew` task, and
-   `@kagal/ca` reference implementation.
+   callback interface, `cert_renew` task (who
+   initiates, how cert reaches agent, how KV mapping
+   updates), and `@kagal/ca` reference implementation.
 
 6. **DO Worker Routing**: Define how `createKagalHandler`
    routes requests: WebSocket upgrades to Agent DOs,
@@ -650,6 +710,16 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 7. **Deployment Topologies**: Document single-Worker
    (all-in-one) vs. multi-Worker (service binding)
    patterns and their trade-offs for upgrade isolation.
+
+8. **Error Message Type**: Consider adding an `error`
+   type to `ServerMessage`:
+   `{ type: 'error'; code: string; message: string }`.
+   Codes: `unknown_agent`, `rate_limited`,
+   `protocol_error`, `version_mismatch`.
+
+9. **Supervisor DO Scope**: Define what fleet-wide
+   coordination the Supervisor DO handles vs. what
+   remains in the consumer's domain.
 
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts
