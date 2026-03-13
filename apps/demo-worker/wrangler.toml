@@ -1,0 +1,23 @@
+name = "kagal-do"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+ip = "0.0.0.0"
+
+[[durable_objects.bindings]]
+name = "KAGAL_AGENT"
+class_name = "KagalAgent"
+
+[[durable_objects.bindings]]
+name = "KAGAL_SUPERVISOR"
+class_name = "KagalSupervisor"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["KagalAgent", "KagalSupervisor"]
+
+[[kv_namespaces]]
+binding = "AGENT_INDEX"
+id = "<create with: wrangler kv namespace create AGENT_INDEX>"

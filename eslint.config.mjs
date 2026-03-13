@@ -5,5 +5,6 @@ export default defineConfig({
   ignores: [
     '.claude/projects/*/memory',
     '.tmp',
+    '**/.wrangler',
   ],
 });

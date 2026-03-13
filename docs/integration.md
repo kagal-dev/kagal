@@ -94,6 +94,28 @@ for (const route of kagal.routes) {
 export default app;
 ```
 
+## Frontend: itty-router
+
+```typescript
+import { createKagalRouter } from '@kagal/server';
+import { AutoRouter } from 'itty-router';
+
+const kagal = createKagalRouter();
+const router = AutoRouter();
+
+for (const route of kagal.routes) {
+  if (route.method === 'WS') continue;
+  const method = route.method.toLowerCase();
+  if (method in router) {
+    router[method](`/kagal${route.path}`, (request, env, context) =>
+      route.handler(request, env, context),
+    );
+  }
+}
+
+export default router;
+```
+
 ## Frontend: Raw Fetch
 
 See [`apps/demo-vanilla/src/index.ts`][demo-vanilla]

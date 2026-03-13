@@ -182,19 +182,18 @@ are **not** part of the core router.
 
 See the demo applications under `apps/` and
 [`docs/integration.md`][integration] for framework
-adapters (Hono, Nitro) and `wrangler.toml` templates.
+adapters (Hono, itty-router, Nitro) and `wrangler.toml`
+templates.
 
+- **`demo-hono/`** — Hono frontend. Mounts
+  `kagal.routes` into the Hono app.
+- **`demo-itty/`** — itty-router frontend. Maps
+  `kagal.routes` via dynamic method dispatch.
+- **`demo-vanilla/`** — Minimal frontend using raw
+  fetch. Uses `kagal.handle()` as a catch-all.
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
   `createKagalHandler()` as the fetch handler.
-- **`demo-hono/`** — Frontend Worker using Hono.
-  Mounts `kagal.routes` into the Hono app.
-- **`demo-vanilla/`** — Minimal frontend using raw
-  fetch. Uses `kagal.handle()` as a catch-all.
-
-The frontend Worker's `Env` includes a `Fetcher`
-service binding to the DO Worker. `createKagalRouter`
-uses this binding to forward requests.
 
 ---
 
@@ -601,26 +600,28 @@ platform limits relevant to this architecture.
 ## Demo Structure
 
 The repository includes demo applications for local
-development with `pnpm dev`:
+development with `pnpm dev:demo-*`:
 
 ```text
 apps/
-├── demo-worker/         # Deploys Agent + Supervisor DOs
-│   ├── src/index.ts
-│   └── wrangler.toml
-├── demo-vanilla/        # Minimal frontend (raw fetch, OAuth2 device)
-│   ├── src/index.ts
-│   └── wrangler.toml
 ├── demo-hono/           # Hono frontend
 │   ├── src/index.ts
 │   └── wrangler.toml
-└── demo-nuxt/           # Nuxt 4 (planned)
+├── demo-itty/           # itty-router frontend
+│   ├── src/index.ts
+│   └── wrangler.toml
+├── demo-vanilla/        # Raw fetch handler
+│   ├── src/index.ts
+│   └── wrangler.toml
+└── demo-worker/         # Deploys Agent + Supervisor DOs
+    ├── src/index.ts
+    └── wrangler.toml
 ```
 
-The frontend Worker connects to the DO Worker via a
-service binding. Agent WebSocket upgrades are routed
-directly to Agent DOs; fleet operations go through the
-Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
+Each frontend Worker connects to the DO Worker via a
+`KAGAL_WORKER` service binding. Agent WebSocket
+upgrades are routed directly to Agent DOs; fleet
+operations go through the Supervisor DO.
 
 ---
 
@@ -669,7 +670,7 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 ### Phase 5: Polish & Publish
 
 1. Documentation and integration guide
-2. Demo applications (vanilla, Hono, Nuxt 4)
+2. Demo applications (vanilla, Hono, itty-router, Nuxt 4)
 
 ---
 

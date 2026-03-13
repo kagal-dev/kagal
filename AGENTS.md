@@ -1,3 +1,5 @@
+<!-- cSpell:words itty npmjs -->
+
 # AGENTS.md
 
 This file provides guidance to AI coding assistants
@@ -30,10 +32,11 @@ kagal/
 ├── pkg/proto/                 # Generated Go protobuf types
 │   └── kagal/v1/              # import kagal.dev/pkg/proto/kagal/v1
 ├── apps/
-│   ├── demo-worker/           # Demo: DO worker (wrangler)
-│   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
 │   ├── demo-hono/             # Demo: Hono frontend
-│   └── demo-nuxt/             # Demo: Nuxt 4 (planned)
+│   ├── demo-itty/             # Demo: itty-router frontend
+│   ├── demo-nuxt/             # Demo: Nuxt 4 (planned)
+│   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
+│   └── demo-worker/           # Demo: DO worker (wrangler)
 ├── docs/                      # Reference docs (limits, integration)
 ├── .github/workflows/         # CI/CD
 ├── go.mod                     # Go module: kagal.dev
@@ -66,7 +69,9 @@ pnpm lint         # Lint all (root + proto + packages)
 pnpm lint:proto   # Format and lint proto files
 pnpm test         # Test all npm packages
 pnpm precommit    # lint, type-check, build, test
-pnpm dev          # Run demo apps locally
+pnpm dev:demo-vanilla  # wrangler dev (vanilla + DO worker)
+pnpm dev:demo-hono     # wrangler dev (Hono + DO worker)
+pnpm dev:demo-itty     # wrangler dev (itty-router + DO worker)
 ```
 
 ## Code Style Guidelines

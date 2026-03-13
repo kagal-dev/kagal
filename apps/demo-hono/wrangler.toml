@@ -1,0 +1,12 @@
+name = "kagal-demo-hono"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+ip = "0.0.0.0"
+
+# Service binding to the DO worker
+[[services]]
+binding = "KAGAL_WORKER"
+service = "kagal-do"
