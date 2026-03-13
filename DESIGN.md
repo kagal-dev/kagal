@@ -1,4 +1,4 @@
-<!-- cSpell:words cloudflared hono itty kagalctl -->
+<!-- cSpell:words cloudflared codegen hono itty kagalctl -->
 
 # Kagal — Design Document
 
@@ -17,8 +17,11 @@ channels, on-demand tunnels, task dispatch, mTLS
 authentication, and clone detection — all running on
 Cloudflare's edge with zero idle cost.
 
-Kagal ships as three npm packages:
+Kagal ships as four npm packages:
 
+- **`@kagal/proto`** — Generated protobuf-es types for
+  the wire protocol. Published from the proto schema
+  at [`proto/kagal/v1/`][proto-v1].
 - **`@kagal/worker`** — Durable Object library. Exports
   Agent DO (per-agent WebSocket, SQLite task queue,
   nonce chain, tunnel splice) and Supervisor DO (fleet
@@ -250,9 +253,9 @@ its Agent DO.
 Messages are defined as Protocol Buffers in
 [`proto/kagal/v1/`][proto-v1] and encoded using
 protobuf-es. TypeScript types for messages
-(`ServerMessage`, `AgentMessage`) are generated from
-the proto definitions — not hand-written. The proto
-module is published to BSR as `buf.build/kagal/agent`.
+(`ServerMessage`, `AgentMessage`) are generated into
+`@kagal/proto` — not hand-written. The proto module
+is published to BSR as `buf.build/kagal/agent`.
 
 Proto files are split by topic:
 
@@ -561,8 +564,7 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 ### Phase 0: Proto Schema + Codegen
 
-1. Set up protobuf-es codegen
-2. Set up buf.build CI publishing
+1. Set up buf.build CI publishing
 
 ### Phase 1: Core Library
 
