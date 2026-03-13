@@ -230,6 +230,10 @@ stabilise. It will provide `pkg/agent` (agent library),
 management CLI), and `cmd/kagal-ssh-proxy` (tunnel
 ProxyCommand helper).
 
+Generated Go protobuf types are at
+`pkg/proto/kagal/v1` (import as
+`kagal.dev/pkg/proto/kagal/v1`).
+
 ---
 
 ## Core Protocol

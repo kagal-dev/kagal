@@ -15,6 +15,12 @@ details.
 | [`@kagal/server`](packages/@kagal-server) | Server library for fleet management frontends |
 | [`@kagal/agent`](packages/@kagal-agent) | Agent CLI and library (citty) |
 
+## Go
+
+| Path | Description |
+|------|-------------|
+| `pkg/proto/kagal/v1` | Generated protobuf types (`kagal.dev/pkg/proto/kagal/v1`) |
+
 ## Provenance
 
 All `@kagal/*` packages are published with

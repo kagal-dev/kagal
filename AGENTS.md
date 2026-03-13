@@ -26,13 +26,15 @@ kagal/
 │   └── @kagal-agent/          # Agent CLI + library (citty)
 ├── proto/                     # Protobuf schema (buf.build/kagal/agent)
 │   └── kagal/v1/              # Package kagal.v1
+├── pkg/proto/                 # Generated Go protobuf types
+│   └── kagal/v1/              # import kagal.dev/pkg/proto/kagal/v1
 ├── apps/
 │   ├── demo-worker/           # Demo: DO worker (wrangler)
 │   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
 │   ├── demo-hono/             # Demo: Hono frontend
 │   └── demo-nuxt/             # Demo: Nuxt 4 (planned)
 ├── .github/workflows/         # CI/CD
-├── go.mod                     # Go module: kagal.dev (planned)
+├── go.mod                     # Go module: kagal.dev
 ├── pnpm-workspace.yaml        # pnpm workspace config
 └── vitest.workspace.ts        # Test configuration
 ```
@@ -55,6 +57,7 @@ TypeScript packages stabilise.
 ```bash
 pnpm build        # Build all npm packages
 pnpm clean        # Clean all npm packages
+pnpm generate     # Regenerate proto (TS + Go)
 pnpm lint         # Lint all (root + proto + packages)
 pnpm lint:proto   # Format and lint proto files
 pnpm test         # Test all npm packages
