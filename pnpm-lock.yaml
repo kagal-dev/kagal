@@ -39,6 +39,9 @@ importers:
         specifier: ^3.4.2
         version: 3.4.2
     devDependencies:
+      '@kagal/cross-test':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -73,6 +76,9 @@ importers:
         specifier: ^2.11.0
         version: 2.11.0
     devDependencies:
+      '@kagal/cross-test':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -106,6 +112,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20260313.1
         version: 4.20260313.1
+      '@kagal/cross-test':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -139,6 +148,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20260313.1
         version: 4.20260313.1
+      '@kagal/cross-test':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -627,6 +639,11 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@kagal/cross-test@0.1.2':
+    resolution: {integrity: sha512-dw1042wWp7C3Xq89OxC1OpvmASLSOVVB04pmKQZnbaIwZbzN+61jRSJlavnNt38joiFJHknucwddj2S3tnXQow==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   '@microsoft/tsdoc-config@0.18.1':
     resolution: {integrity: sha512-9brPoVdfN9k9g0dcWkFeA7IH9bbcttzDJlXvkf8b2OBzd5MueR1V2wkKBL0abn0otvmkHJC6aapBOTJDDeMCZg==}
@@ -2711,6 +2728,8 @@ snapshots:
   '@humanwhocodes/retry@0.4.3': {}
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@kagal/cross-test@0.1.2': {}
 
   '@microsoft/tsdoc-config@0.18.1':
     dependencies:
