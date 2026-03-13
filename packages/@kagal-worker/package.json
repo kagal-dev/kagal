@@ -51,7 +51,7 @@
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260312.1",
+    "@cloudflare/workers-types": "^4.20260313.1",
     "@poupe/eslint-config": "^0.8.3",
     "@types/node": "^20.19.0",
     "eslint": "^9.30.0",
