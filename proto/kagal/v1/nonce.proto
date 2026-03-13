@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package kagal.v1;
+
+option go_package = "kagal.dev/pkg/proto/kagal/v1;kagal";
+
+// NonceRotate rotates the agent's nonce.
+message NonceRotate {
+  string nonce = 1;
+}

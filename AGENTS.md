@@ -23,6 +23,8 @@ kagal/
 │   │   └── sql/               # SQLite schema
 │   ├── @kagal-server/         # Server/frontend library
 │   └── @kagal-agent/          # Agent CLI + library (citty)
+├── proto/                     # Protobuf schema (buf.build/kagal/agent)
+│   └── kagal/v1/              # Package kagal.v1
 ├── apps/
 │   ├── demo-worker/           # Demo: DO worker (wrangler)
 │   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
@@ -51,8 +53,10 @@ TypeScript packages stabilise.
 ```bash
 pnpm build        # Build all npm packages
 pnpm clean        # Clean all npm packages
-pnpm lint         # Lint all npm packages
+pnpm lint         # Lint all (root + proto + packages)
+pnpm lint:proto   # Format and lint proto files
 pnpm test         # Test all npm packages
+pnpm precommit    # lint, type-check, build, test
 pnpm dev          # Run demo apps locally
 ```
 
@@ -84,7 +88,7 @@ All packages follow these conventions (enforced by
 
 Before committing any changes, ALWAYS run:
 
-1. `pnpm precommit` for npm packages (if changed)
+1. `pnpm precommit` (if any source changed)
 
 2. Fix any issues found
 
@@ -175,14 +179,25 @@ When referencing other npm packages in the monorepo:
 ## Build Systems
 
 - **unbuild**: Used by all npm packages
+- **buf**: Proto linting, formatting, and BSR publishing
 
 ## Common Dependencies
 
 - **TypeScript**: strict mode enabled
 - **Vitest**: for npm testing
 - **ESLint**: Via @poupe/eslint-config
+- **buf**: Proto schema tooling (`@bufbuild/buf`)
 - **Node.js**: >= 20.19.2
 - **pnpm**: >= 10.10.0
+
+## TypeScript Configuration
+
+Each package has two tsconfig files:
+
+- `tsconfig.json` — source code only (no Node types)
+- `tsconfig.tools.json` — extends tsconfig.json, adds
+  Node types for build/test tooling (build.config.ts,
+  vitest.config.ts)
 
 ## Publishing
 

@@ -247,25 +247,26 @@ its Agent DO.
 
 ### Message Schema
 
-Messages are defined as Protocol Buffers and encoded
-using protobuf-es. TypeScript types for messages
+Messages are defined as Protocol Buffers in
+[`proto/kagal/v1/`][proto-v1] and encoded using
+protobuf-es. TypeScript types for messages
 (`ServerMessage`, `AgentMessage`) are generated from
-the proto definitions — not hand-written.
+the proto definitions — not hand-written. The proto
+module is published to BSR as `buf.build/kagal/agent`.
 
-The schema covers:
+Proto files are split by topic:
 
-**Server → Agent:**
-
-- `task` — dispatch a task (task_id, action, params)
-- `nonce` — rotate nonce
-- `quarantine` — quarantine with claim code
-
-**Agent → Server:**
-
-- `hello` — initial handshake (nonce, boot_count,
-  hw_serial)
-- `task_result` — task outcome (task_id, status, data)
-- `status` — periodic status update
+- [`task.proto`][proto-task] — `TaskDispatch`
+  (`Struct` params), `TaskResult` (`Struct` data),
+  `TaskStatus` enum
+- [`nonce.proto`][proto-nonce] — `NonceRotate`
+- [`agent.proto`][proto-agent] — `Hello`,
+  `StatusReport` (`Struct` meta), `Quarantine`
+- [`envelope.proto`][proto-envelope] — `ServerMessage`
+  (server → agent), `AgentMessage` (agent → server)
+  wire envelopes (oneof). Includes `Error` for
+  protocol errors and `Any` extension fields for
+  consumer messages.
 
 ### Connection Flow
 
@@ -560,9 +561,8 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 ### Phase 0: Proto Schema + Codegen
 
-1. Define protobuf message schema
-2. Set up protobuf-es codegen
-3. Determine buf.build publishing strategy
+1. Set up protobuf-es codegen
+2. Set up buf.build CI publishing
 
 ### Phase 1: Core Library
 
@@ -638,12 +638,13 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
    (all-in-one) vs. multi-Worker (service binding)
    patterns and their trade-offs for upgrade isolation.
 
-8. **Proto Schema Location**: Determine proto file
-   structure and buf.build publishing strategy for
-   the protobuf message definitions.
-
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts
 [server-types]: packages/@kagal-server/src/types.ts
 [agent-types]: packages/@kagal-agent/src/types.ts
 [schema-sql]: packages/@kagal-worker/sql/schema.sql
+[proto-v1]: proto/kagal/v1/
+[proto-task]: proto/kagal/v1/task.proto
+[proto-nonce]: proto/kagal/v1/nonce.proto
+[proto-agent]: proto/kagal/v1/agent.proto
+[proto-envelope]: proto/kagal/v1/envelope.proto
