@@ -12,7 +12,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
       eslint:
-        specifier: ^9.30.0
+        specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
       npm-run-all2:
         specifier: ^8.0.4
@@ -40,7 +40,7 @@ importers:
         specifier: ^20.19.0
         version: 20.19.37
       eslint:
-        specifier: ^9.30.0
+        specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
       npm-run-all2:
         specifier: ^8.0.4
@@ -73,7 +73,7 @@ importers:
         specifier: ^20.19.0
         version: 20.19.37
       eslint:
-        specifier: ^9.30.0
+        specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
       npm-run-all2:
         specifier: ^8.0.4
@@ -106,7 +106,7 @@ importers:
         specifier: ^20.19.0
         version: 20.19.37
       eslint:
-        specifier: ^9.30.0
+        specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
       npm-run-all2:
         specifier: ^8.0.4
