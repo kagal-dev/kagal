@@ -11,7 +11,7 @@ library for building agent fleet management
 platforms on Cloudflare Workers. It provides primitives
 for connecting thousands of agents behind NAT to a
 central control plane: persistent control channels,
-on-demand SSH tunnels, task dispatch, mTLS
+on-demand tunnels, task dispatch, mTLS
 authentication, and clone detection.
 
 ## Monorepo Structure
@@ -20,6 +20,7 @@ authentication, and clone detection.
 kagal/
 ├── packages/
 │   ├── @kagal-worker/         # Durable Object library
+│   │   └── sql/               # SQLite schema
 │   ├── @kagal-server/         # Server/frontend library
 │   └── @kagal-agent/          # Agent CLI + library (citty)
 ├── apps/
@@ -183,16 +184,40 @@ When referencing other npm packages in the monorepo:
 - **Node.js**: >= 20.19.2
 - **pnpm**: >= 10.10.0
 
-## Package-Specific Notes
+## Publishing
 
-- `@kagal/worker` — Durable Object library
-  (WebSocket, task queue, nonce chain)
-- `@kagal/server` — Server library for fleet
-  management frontends
-- `@kagal/agent` — Agent CLI and library (citty)
+npm packages are published via GitHub Actions using
+npm's trusted publishing (OIDC). No tokens are stored
+as secrets.
 
-Go packages (`pkg/agent`, `cmd/kagal`, `cmd/kagalctl`,
-`cmd/kagal-ssh-proxy`) are planned.
+### How it works
+
+1. Push a version tag (`v*`) to trigger the
+   `publish.yml` workflow
+2. GitHub Actions authenticates to npm via OIDC
+   (`id-token: write`)
+3. `pnpm -r publish:maybe` runs in each package:
+   - Checks if `$name@$version` already exists on npm
+   - Publishes with `--provenance` if it doesn't
+4. npm records the provenance attestation linking the
+   published package to this repository and workflow
+
+### Setup (per package on npmjs.com)
+
+Each `@kagal/*` package must be configured as a
+trusted publisher on npmjs.com:
+
+- **Repository**: `kagal-dev/kagal`
+- **Workflow**: `publish.yml`
+- **Environment**: (none)
+
+### Versioning
+
+- A `v*` tag triggers publishing across all packages,
+  but only packages whose version was bumped since
+  the last publish will actually be released
+- `publish:maybe` skips already-published versions,
+  making it safe to tag without bumping every package
 
 ## Debugging Tips
 

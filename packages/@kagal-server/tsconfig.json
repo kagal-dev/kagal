@@ -8,12 +8,13 @@
     "outDir": "dist",
     "strict": true,
     "skipLibCheck": true,
-    "declaration": true
+    "declaration": true,
+    "types": [
+      "@cloudflare/workers-types"
+    ]
   },
   "include": [
-    "src",
-    "build.config.ts",
-    "vitest.config.ts"
+    "src"
   ],
   "exclude": [
     "node_modules",
