@@ -587,17 +587,27 @@ first releases.
 
 ---
 
-## Go Module: `kagal.dev` (Planned)
+## Go Module: `kagal.dev`
 
-A Go module is planned for after the TypeScript packages
-stabilise. It will provide `pkg/agent` (agent library),
-`cmd/kagal` (reference agent), `cmd/kagalctl` (fleet
-management CLI), and `cmd/kagal-ssh-proxy` (tunnel
-ProxyCommand helper).
+The Go module mirrors the TypeScript agent
+architecture. Consumers extend `pkg/agent` to build
+domain-specific agent variants — same pattern as
+`@kagal/agent`.
 
-Generated Go protobuf types are at
-`pkg/proto/kagal/v1` (import as
-`kagal.dev/pkg/proto/kagal/v1`).
+| Path | Description |
+|------|-------------|
+| [`pkg/agent`][go-agent] | Agent library (extensible) |
+| [`cmd/kagal`][go-cmd-kagal] | Reference agent |
+| `cmd/kagalctl` | Fleet management CLI |
+| [`cmd/kagal-ssh-proxy`][go-ssh-proxy] | SSH ProxyCommand helper |
+| `pkg/proto/kagal/v1` | Generated protobuf types |
+
+`cmd/kagal` is the reference implementation built on
+`pkg/agent`. Same pattern as `@kagal/agent` — local
+service and local client in one binary, with RPC
+planned for later releases. All binaries compile to
+static binaries with zero runtime dependencies —
+libraries only, no shelling out to external tools.
 
 ---
 
@@ -939,6 +949,9 @@ See the demo applications under `apps/` and
 [proto-nonce]: proto/kagal/v1/nonce.proto
 [proto-agent]: proto/kagal/v1/agent.proto
 [proto-envelope]: proto/kagal/v1/envelope.proto
+[go-agent]: pkg/agent/agent.go
+[go-cmd-kagal]: cmd/kagal/main.go
+[go-ssh-proxy]: cmd/kagal-ssh-proxy/main.go
 [api]: docs/api.md
 [cf-limits]: docs/cloudflare-limits.md
 [integration]: docs/integration.md

@@ -33,6 +33,10 @@ Every connection passes through one well-defined gate.
 | Path | Description |
 |------|-------------|
 | `pkg/proto/kagal/v1` | Generated protobuf types (`kagal.dev/pkg/proto/kagal/v1`) |
+| `pkg/agent` | Agent-side library |
+| `cmd/kagal` | Reference agent binary |
+| `cmd/kagalctl` | Fleet management CLI |
+| `cmd/kagal-ssh-proxy` | SSH ProxyCommand helper |
 
 ## Provenance
 

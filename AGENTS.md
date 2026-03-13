@@ -1,4 +1,4 @@
-<!-- cSpell:words itty npmjs -->
+<!-- cSpell:words gofmt godoc itty kagalctl npmjs stdlib -->
 
 # AGENTS.md
 
@@ -20,6 +20,10 @@ authentication, and clone detection.
 
 ```bash
 kagal/
+├── cmd/
+│   ├── kagal/                 # Reference agent (Go, cobra)
+│   ├── kagalctl/              # Fleet management CLI (Go, cobra)
+│   └── kagal-ssh-proxy/       # SSH ProxyCommand helper (Go)
 ├── packages/
 │   ├── @kagal-worker/         # Durable Object library
 │   │   └── sql/               # SQLite schema
@@ -29,8 +33,10 @@ kagal/
 │   └── @kagal-test-utils/     # Shared test utilities (private)
 ├── proto/                     # Protobuf schema (buf.build/kagal/agent)
 │   └── kagal/v1/              # Package kagal.v1
-├── pkg/proto/                 # Generated Go protobuf types
-│   └── kagal/v1/              # import kagal.dev/pkg/proto/kagal/v1
+├── pkg/
+│   ├── agent/                 # Agent library (Go)
+│   └── proto/                 # Generated Go protobuf types
+│       └── kagal/v1/          # import kagal.dev/pkg/proto/kagal/v1
 ├── apps/
 │   ├── demo-hono/             # Demo: Hono frontend
 │   ├── demo-itty/             # Demo: itty-router frontend
@@ -44,6 +50,14 @@ kagal/
 └── vitest.workspace.ts        # Test configuration
 ```
 
+### Hybrid Go + npm
+
+- **Go code** lives at root (`cmd/`, `pkg/`) under
+  module `kagal.dev`
+- **npm packages** live under `packages/` with scope
+  `@kagal/`
+- **Demo apps** live under `apps/`
+
 ### npm Packages
 
 - `@kagal/proto` — Generated protobuf-es wire types
@@ -56,10 +70,18 @@ kagal/
   not published)
 - **Demo apps** live under `apps/`
 
-A Go module (`kagal.dev`) is planned for after the
-TypeScript packages stabilise.
+### Go Module
+
+- `pkg/agent` — Go agent library (extensible)
+- `cmd/kagal` — Reference agent binary (cobra)
+- `cmd/kagalctl` — Fleet management CLI (cobra)
+- `cmd/kagal-ssh-proxy` — SSH ProxyCommand helper
+
+Developed after the TypeScript packages stabilise.
 
 ## Common Commands
+
+**npm (pnpm workspace):**
 
 ```bash
 pnpm build        # Build all npm packages
@@ -74,10 +96,18 @@ pnpm dev:demo-hono     # wrangler dev (Hono + DO worker)
 pnpm dev:demo-itty     # wrangler dev (itty-router + DO worker)
 ```
 
+**Go:**
+
+```bash
+go build ./...    # Build all Go packages
+go test ./...     # Test all Go packages
+go vet ./...      # Vet all Go packages
+```
+
 ## Code Style Guidelines
 
 All packages follow these conventions (enforced by
-.editorconfig and ESLint):
+.editorconfig and ESLint/golangci-lint):
 
 ### TypeScript/JavaScript
 
@@ -96,6 +126,17 @@ All packages follow these conventions (enforced by
 - **Final Newline**: Always insert
 - **Trailing Whitespace**: Always trim
 
+### Go
+
+- **Formatting**: gofmt (tabs, standard Go style)
+- **Indentation**: Tabs (indent_size 4 for display)
+- **Naming**: Follow standard Go conventions
+- **Comments**: Godoc format
+- **Imports**: Grouped (stdlib, external, internal)
+- **Error Handling**: Always check errors, no blank
+  identifiers for errors
+- **CLI**: cobra for all Go commands
+
 ## Development Practices
 
 ### Pre-commit Checklist (MANDATORY)
@@ -104,9 +145,12 @@ Before committing any changes, ALWAYS run:
 
 1. `pnpm precommit` (if any source changed)
 
-2. Fix any issues found
+2. `go vet ./...` and `go test ./...` for Go code
+   (if changed)
 
-3. Update AGENTS.md if guidelines change
+3. Fix any issues found
+
+4. Update AGENTS.md if guidelines change
 
 ### DO
 
@@ -124,7 +168,8 @@ Before committing any changes, ALWAYS run:
   existing ones
 - Add external dependencies without careful
   consideration
-- Ignore TypeScript errors or ESLint warnings
+- Ignore TypeScript errors, ESLint warnings, or Go vet
+  issues
 - Mix concerns between packages
 - Use relative imports between npm packages (use
   workspace deps)
@@ -188,12 +233,15 @@ When referencing other npm packages in the monorepo:
 ## Testing Guidelines
 
 - npm packages use Vitest for testing
-- Test files: `*.test.ts` / `*.spec.ts`
+- Go packages use the standard `testing` package
+- Test files: `*.test.ts` / `*.spec.ts` (npm) or
+  `*_test.go` (Go)
 
 ## Build Systems
 
 - **unbuild**: Used by all npm packages
 - **buf**: Proto linting, formatting, and BSR publishing
+- **go build**: Used for Go binaries in cmd/
 
 ## Common Dependencies
 
@@ -201,6 +249,7 @@ When referencing other npm packages in the monorepo:
 - **Vitest**: for npm testing
 - **ESLint**: Via @poupe/eslint-config
 - **buf**: Proto schema tooling (`@bufbuild/buf`)
+- **Go**: 1.24+ (see go.mod)
 - **Node.js**: >= 20.19.2
 - **pnpm**: >= 10.10.0
 
@@ -258,6 +307,8 @@ trusted publisher on npmjs.com:
 
 4. **Dependency Issues**: Verify workspace links with
    `pnpm list`
+
+5. **Go Module Issues**: Run `go mod tidy`
 
 ## Claude Code Specific Instructions
 
