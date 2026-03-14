@@ -1,6 +1,22 @@
+import type { KagalRole } from '@kagal/worker';
+
+export { KAGAL_ROLES } from '@kagal/worker';
+export type { KagalRole } from '@kagal/worker';
+
+export const ROUTE_METHODS = ['GET', 'POST', 'WS'] as const;
+
+export type RouteMethod = typeof ROUTE_METHODS[number];
+
 export interface KagalServerEnv {
   // Required: service binding to the DO Worker
   KAGAL_WORKER: Fetcher
+}
+
+export interface KagalAuthResult {
+  agentID: string
+  role: KagalRole
+  fingerprint: string
+  certExpired: boolean
 }
 
 export interface KagalServerConfig {
@@ -13,16 +29,16 @@ export interface KagalServerConfig {
   allowExpiredCerts?: boolean
 
   // Extract agent_id from cert subject DN.
-  extractAgentID?: (subjectDN: string) => null | string
+  extractAgentID?: (subjectDN: string) => string | undefined
 
   // Determine role from cert subject DN.
-  extractRole?: (subjectDN: string) => 'agent' | 'operator'
+  extractRole?: (subjectDN: string) => KagalRole | undefined
 }
 
 export interface KagalRoute<
   E extends KagalServerEnv = KagalServerEnv,
 > {
-  method: string
+  method: RouteMethod
   path: string
   handler: (
     request: Request,
@@ -39,5 +55,5 @@ export interface KagalRouter<
     request: Request,
     env: E,
     context: ExecutionContext,
-  ) => Promise<null | Response>
+  ) => Promise<Response | undefined>
 }

@@ -1,3 +1,5 @@
+<!-- cSpell:words itty npmjs -->
+
 # AGENTS.md
 
 This file provides guidance to AI coding assistants
@@ -21,26 +23,37 @@ kagal/
 ├── packages/
 │   ├── @kagal-worker/         # Durable Object library
 │   │   └── sql/               # SQLite schema
+│   ├── @kagal-proto/          # Generated protobuf-es types
 │   ├── @kagal-server/         # Server/frontend library
-│   └── @kagal-agent/          # Agent CLI + library (citty)
+│   ├── @kagal-agent/          # Agent CLI + library (citty)
+│   └── @kagal-test-utils/     # Shared test utilities (private)
+├── proto/                     # Protobuf schema (buf.build/kagal/agent)
+│   └── kagal/v1/              # Package kagal.v1
+├── pkg/proto/                 # Generated Go protobuf types
+│   └── kagal/v1/              # import kagal.dev/pkg/proto/kagal/v1
 ├── apps/
-│   ├── demo-worker/           # Demo: DO worker (wrangler)
-│   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
 │   ├── demo-hono/             # Demo: Hono frontend
-│   └── demo-nuxt/             # Demo: Nuxt 4 (planned)
+│   ├── demo-itty/             # Demo: itty-router frontend
+│   ├── demo-nuxt/             # Demo: Nuxt 4 (planned)
+│   ├── demo-vanilla/          # Demo: minimal frontend (raw fetch)
+│   └── demo-worker/           # Demo: DO worker (wrangler)
+├── docs/                      # Reference docs (limits, integration)
 ├── .github/workflows/         # CI/CD
-├── go.mod                     # Go module: kagal.dev (planned)
+├── go.mod                     # Go module: kagal.dev
 ├── pnpm-workspace.yaml        # pnpm workspace config
 └── vitest.workspace.ts        # Test configuration
 ```
 
 ### npm Packages
 
+- `@kagal/proto` — Generated protobuf-es wire types
 - `@kagal/worker` — Durable Object library (Agent DO,
   Supervisor DO)
 - `@kagal/server` — Server library for frontends
 - `@kagal/agent` — TypeScript agent CLI and library
   (citty)
+- `@kagal/test-utils` — Shared test utilities (private,
+  not published)
 - **Demo apps** live under `apps/`
 
 A Go module (`kagal.dev`) is planned for after the
@@ -51,9 +64,14 @@ TypeScript packages stabilise.
 ```bash
 pnpm build        # Build all npm packages
 pnpm clean        # Clean all npm packages
-pnpm lint         # Lint all npm packages
+pnpm generate     # Regenerate proto (TS + Go)
+pnpm lint         # Lint all (root + proto + packages)
+pnpm lint:proto   # Format and lint proto files
 pnpm test         # Test all npm packages
-pnpm dev          # Run demo apps locally
+pnpm precommit    # lint, type-check, build, test
+pnpm dev:demo-vanilla  # wrangler dev (vanilla + DO worker)
+pnpm dev:demo-hono     # wrangler dev (Hono + DO worker)
+pnpm dev:demo-itty     # wrangler dev (itty-router + DO worker)
 ```
 
 ## Code Style Guidelines
@@ -84,7 +102,7 @@ All packages follow these conventions (enforced by
 
 Before committing any changes, ALWAYS run:
 
-1. `pnpm precommit` for npm packages (if changed)
+1. `pnpm precommit` (if any source changed)
 
 2. Fix any issues found
 
@@ -175,14 +193,25 @@ When referencing other npm packages in the monorepo:
 ## Build Systems
 
 - **unbuild**: Used by all npm packages
+- **buf**: Proto linting, formatting, and BSR publishing
 
 ## Common Dependencies
 
 - **TypeScript**: strict mode enabled
 - **Vitest**: for npm testing
 - **ESLint**: Via @poupe/eslint-config
+- **buf**: Proto schema tooling (`@bufbuild/buf`)
 - **Node.js**: >= 20.19.2
 - **pnpm**: >= 10.10.0
+
+## TypeScript Configuration
+
+Each package has two tsconfig files:
+
+- `tsconfig.json` — source code only (no Node types)
+- `tsconfig.tools.json` — extends tsconfig.json, adds
+  Node types for build/test tooling (build.config.ts,
+  vitest.config.ts)
 
 ## Publishing
 

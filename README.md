@@ -10,9 +10,16 @@ details.
 
 | Package | Description |
 |---------|-------------|
+| [`@kagal/proto`](packages/@kagal-proto) | Generated protobuf-es wire types |
 | [`@kagal/worker`](packages/@kagal-worker) | Durable Object library (WebSocket, task queue, nonce chain, tunnel splice) |
 | [`@kagal/server`](packages/@kagal-server) | Server library for fleet management frontends |
 | [`@kagal/agent`](packages/@kagal-agent) | Agent CLI and library (citty) |
+
+## Go
+
+| Path | Description |
+|------|-------------|
+| `pkg/proto/kagal/v1` | Generated protobuf types (`kagal.dev/pkg/proto/kagal/v1`) |
 
 ## Provenance
 

@@ -9,9 +9,15 @@ export interface KagalEnv {
   AGENT_INDEX: KVNamespace
 }
 
+export const KAGAL_ROLES = ['agent', 'operator'] as const;
+export const TASK_STATUSES = ['queued', 'dispatched', 'ok', 'error'] as const;
+
+export type KagalRole = typeof KAGAL_ROLES[number];
+export type TaskStatus = typeof TASK_STATUSES[number];
+
 export interface AgentIdentity {
   agent_id: string
-  role: 'agent' | 'operator'
+  role: KagalRole
   registered_at: string
 }
 
@@ -23,7 +29,7 @@ export interface Task {
   task_id: string
   action: string
   params: Record<string, unknown>
-  status: 'dispatched' | 'error' | 'ok' | 'queued'
+  status: TaskStatus
   result?: Record<string, unknown>
   error?: string
   queued_at: string

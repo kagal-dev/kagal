@@ -1,4 +1,10 @@
 // @ts-check
 import { defineConfig } from '@poupe/eslint-config';
 
-export default defineConfig();
+export default defineConfig({
+  ignores: [
+    '.claude/projects/*/memory',
+    '.tmp',
+    '**/.wrangler',
+  ],
+});

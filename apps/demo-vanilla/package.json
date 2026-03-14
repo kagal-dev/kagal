@@ -1,0 +1,18 @@
+{
+  "name": "@kagal/demo-vanilla",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kagal/server": "workspace:^"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260313.1",
+    "wrangler": "^4.23.0"
+  }
+}

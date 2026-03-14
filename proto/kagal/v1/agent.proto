@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package kagal.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "kagal.dev/pkg/proto/kagal/v1;kagal";
+
+// Hello is the initial handshake from agent to server.
+message Hello {
+  string nonce = 1;
+  uint32 boot_count = 2;
+  string hw_serial = 3;
+}
+
+// StatusReport is a periodic status update from agent to server.
+message StatusReport {
+  string version = 1;
+  google.protobuf.Struct meta = 2;
+}
+
+// Quarantine notifies the agent it has been quarantined.
+message Quarantine {
+  string reason = 1;
+  string claim_code = 2;
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@kagal/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared test utilities for Kagal packages",
+  "author": "Alejandro Mery <amery@apptly.co>",
+  "license": "MIT",
+  "homepage": "https://github.com/kagal-dev/kagal/tree/main/packages/@kagal-test-utils#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kagal-dev/kagal.git",
+    "directory": "packages/@kagal-test-utils"
+  },
+  "bugs": {
+    "url": "https://github.com/kagal-dev/kagal/issues"
+  },
+  "keywords": [
+    "kagal",
+    "testing"
+  ],
+  "exports": {
+    "./cloudflare-workers": "./src/cloudflare-workers.ts"
+  },
+  "scripts": {
+    "clean": "rimraf node_modules",
+    "lint": "eslint --fix .",
+    "lint:check": "eslint .",
+    "precommit": "run-s lint type-check test",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@poupe/eslint-config": "^0.8.3",
+    "eslint": "^9.39.4",
+    "npm-run-all2": "^8.0.4",
+    "rimraf": "^6.1.3",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": ">= 20.19.2",
+    "pnpm": ">= 10.32.1"
+  }
+}

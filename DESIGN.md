@@ -1,4 +1,4 @@
-<!-- cSpell:words cloudflared hono itty kagalctl -->
+<!-- cSpell:words cloudflared codegen hono itty kagalctl -->
 
 # Kagal — Design Document
 
@@ -17,17 +17,21 @@ channels, on-demand tunnels, task dispatch, mTLS
 authentication, and clone detection — all running on
 Cloudflare's edge with zero idle cost.
 
-Kagal ships as three npm packages:
+Kagal ships as four npm packages:
 
+- **`@kagal/proto`** — Generated protobuf-es types for
+  the wire protocol. Published from the proto schema
+  at [`proto/kagal/v1/`][proto-v1].
 - **`@kagal/worker`** — Durable Object library. Exports
   Agent DO (per-agent WebSocket, SQLite task queue,
   nonce chain, tunnel splice) and Supervisor DO (fleet
   queries, agent registry).
 - **`@kagal/server`** — Server library for frontends.
-  Exports auth middleware, route handlers, and
-  integration helpers. The consumer mounts Kagal into
-  their own Worker (Hono, itty-router, Nitro, raw fetch
-  handler — whatever they prefer).
+  Exports `createKagalRouter()` (route list + catch-all
+  handler) and `kagalAuth()` for consumer routes that
+  need the same mTLS identity resolution. The consumer
+  mounts Kagal into their own Worker (Hono, itty-router,
+  Nitro, raw fetch handler — whatever they prefer).
 - **`@kagal/agent`** — TypeScript agent CLI and library
   built with citty. Manages the control WebSocket,
   nonce rotation, task execution, and reconnection.
@@ -176,19 +180,20 @@ are **not** part of the core router.
 
 ### Integration Examples
 
-See the demo applications under `apps/`:
+See the demo applications under `apps/` and
+[`docs/integration.md`][integration] for framework
+adapters (Hono, itty-router, Nitro) and `wrangler.toml`
+templates.
 
+- **`demo-hono/`** — Hono frontend. Mounts
+  `kagal.routes` into the Hono app.
+- **`demo-itty/`** — itty-router frontend. Maps
+  `kagal.routes` via dynamic method dispatch.
+- **`demo-vanilla/`** — Minimal frontend using raw
+  fetch. Uses `kagal.handle()` as a catch-all.
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
   `createKagalHandler()` as the fetch handler.
-- **`demo-hono/`** — Frontend Worker using Hono.
-  Mounts `kagal.routes` into the Hono app.
-- **`demo-vanilla/`** — Minimal frontend using raw
-  fetch. Uses `kagal.handle()` as a catch-all.
-
-The frontend Worker's `Env` includes a `Fetcher`
-service binding to the DO Worker. `createKagalRouter`
-uses this binding to forward requests.
 
 ---
 
@@ -227,6 +232,10 @@ stabilise. It will provide `pkg/agent` (agent library),
 management CLI), and `cmd/kagal-ssh-proxy` (tunnel
 ProxyCommand helper).
 
+Generated Go protobuf types are at
+`pkg/proto/kagal/v1` (import as
+`kagal.dev/pkg/proto/kagal/v1`).
+
 ---
 
 ## Core Protocol
@@ -247,25 +256,26 @@ its Agent DO.
 
 ### Message Schema
 
-Messages are defined as Protocol Buffers and encoded
-using protobuf-es. TypeScript types for messages
-(`ServerMessage`, `AgentMessage`) are generated from
-the proto definitions — not hand-written.
+Messages are defined as Protocol Buffers in
+[`proto/kagal/v1/`][proto-v1] and encoded using
+protobuf-es. TypeScript types for messages
+(`ServerMessage`, `AgentMessage`) are generated into
+`@kagal/proto` — not hand-written. The proto module
+is published to BSR as `buf.build/kagal/agent`.
 
-The schema covers:
+Proto files are split by topic:
 
-**Server → Agent:**
-
-- `task` — dispatch a task (task_id, action, params)
-- `nonce` — rotate nonce
-- `quarantine` — quarantine with claim code
-
-**Agent → Server:**
-
-- `hello` — initial handshake (nonce, boot_count,
-  hw_serial)
-- `task_result` — task outcome (task_id, status, data)
-- `status` — periodic status update
+- [`task.proto`][proto-task] — `TaskDispatch`
+  (`Struct` params), `TaskResult` (`Struct` data),
+  `TaskStatus` enum
+- [`nonce.proto`][proto-nonce] — `NonceRotate`
+- [`agent.proto`][proto-agent] — `Hello`,
+  `StatusReport` (`Struct` meta), `Quarantine`
+- [`envelope.proto`][proto-envelope] — `ServerMessage`
+  (server → agent), `AgentMessage` (agent → server)
+  wire envelopes (oneof). Includes `Error` for
+  protocol errors and `Any` extension fields for
+  consumer messages.
 
 ### Connection Flow
 
@@ -313,6 +323,21 @@ Stored in the Agent DO's `nonce_state` table (see
   (state loss)
 - **No state** → first connect, onboarding quarantine
 
+Quarantine reasons: `hw_serial_mismatch` (clone),
+`nonce_replay` (stale boot count), or
+`nonce_mismatch_new_boot` (state loss).
+
+### Quarantine Permissions
+
+| Capability | Normal | Quarantined |
+|-----------|--------|-------------|
+| Control WebSocket | yes | yes |
+| Receive `cert_renew` task | yes | yes |
+| Receive custom tasks | yes | no |
+| SSH tunnel | yes | no |
+| Upload backups | yes | no |
+| Pull firmware | yes | no |
+
 ### Quarantine & Claim Flow
 
 Quarantine covers two cases: **onboarding** (new
@@ -337,7 +362,7 @@ confirms its identity. Both use the same claim flow:
 
 ## PKI — Private Certificate Authority
 
-Kagal manages a private CA for agent authentication.
+Kagal uses a private CA for agent authentication.
 Each agent gets one certificate with dual Extended Key
 Usage (`serverAuth` + `clientAuth`). The CA certificate
 is uploaded to Cloudflare so it can validate incoming
@@ -348,6 +373,35 @@ allowing custom CA implementations or external
 providers. A reference CA package (`@kagal/ca` or
 similar) is planned. Future: ACME support with an
 external identity token.
+
+### PKI Hierarchy
+
+```text
+┌──────────────────────┐
+│  Consumer's Root CA  │  Generated once, kept offline
+│  (offline key)       │  Consumer owns this — not Kagal
+└──────────┬───────────┘
+           │ signs
+    ┌──────┼──────────────┐
+    ▼      ▼              ▼
+  agent   agent        operator
+   .crt    .crt          .crt
+```
+
+Kagal does **not** generate or manage the CA itself.
+The consumer provides the CA — either via `@kagal/ca`
+(a planned reference implementation) or their own CA.
+Kagal only consumes the cert fields provided by
+Cloudflare's TLS termination
+(`request.cf.tlsClientAuth`).
+
+### What Kagal Reads from the Cert
+
+Cloudflare populates `request.cf.tlsClientAuth` after
+mTLS is enabled on the hostname. Kagal uses
+`certPresented`, `certVerified`, `certSubjectDN`,
+`certFingerprintSHA256`, `certNotBefore`, and
+`certNotAfter`.
 
 ### Agent Onboarding
 
@@ -370,6 +424,9 @@ New agents start without a certificate:
 3. Auth middleware reads `certFingerprintSHA256`
 4. Looks up `cert:<fingerprint>` in KV →
    `{ agent_id, role }`
+
+See [`docs/integration.md`][integration] for mTLS
+setup instructions.
 
 TBD: JWT signing authority, bootstrap endpoint
 contract, cert issuance callback interface.
@@ -522,37 +579,49 @@ messages and protocol-level pings are free.
 
 ### 2,000-Agent Estimate
 
+| Resource | Usage | Quota | % |
+|----------|-------|-------|---|
+| Worker requests | ~200K/mo | 10M | 2% |
+| DO requests | ~90K/mo | 1M | 9% |
+| DO duration | ~3,800 GB-s | 400K GB-s | 1% |
+| DO storage | ~20MB | 5 GB | <1% |
+| KV reads | ~50K/mo | 10M | <1% |
+| KV writes | ~100K/mo | 1M | 10% |
+
 2,000 connected-but-idle agents with ~10 messages/day
-each: ~90K DO requests/month (9% of quota), ~3,800
-GB-s duration (1% of quota). KV and storage are
-negligible. The fleet fits comfortably within the
-$5/month plan.
+each. The fleet fits comfortably within the $5/month
+plan.
+
+See [`docs/cloudflare-limits.md`][cf-limits] for
+platform limits relevant to this architecture.
 
 ---
 
 ## Demo Structure
 
 The repository includes demo applications for local
-development with `pnpm dev`:
+development with `pnpm dev:demo-*`:
 
 ```text
 apps/
-├── demo-worker/         # Deploys Agent + Supervisor DOs
-│   ├── src/index.ts
-│   └── wrangler.toml
-├── demo-vanilla/        # Minimal frontend (raw fetch, OAuth2 device)
-│   ├── src/index.ts
-│   └── wrangler.toml
 ├── demo-hono/           # Hono frontend
 │   ├── src/index.ts
 │   └── wrangler.toml
-└── demo-nuxt/           # Nuxt 4 (planned)
+├── demo-itty/           # itty-router frontend
+│   ├── src/index.ts
+│   └── wrangler.toml
+├── demo-vanilla/        # Raw fetch handler
+│   ├── src/index.ts
+│   └── wrangler.toml
+└── demo-worker/         # Deploys Agent + Supervisor DOs
+    ├── src/index.ts
+    └── wrangler.toml
 ```
 
-The frontend Worker connects to the DO Worker via a
-service binding. Agent WebSocket upgrades are routed
-directly to Agent DOs; fleet operations go through the
-Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
+Each frontend Worker connects to the DO Worker via a
+`KAGAL_WORKER` service binding. Agent WebSocket
+upgrades are routed directly to Agent DOs; fleet
+operations go through the Supervisor DO.
 
 ---
 
@@ -560,21 +629,18 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 ### Phase 0: Proto Schema + Codegen
 
-1. Define protobuf message schema
-2. Set up protobuf-es codegen
-3. Determine buf.build publishing strategy
+1. Set up buf.build CI publishing
 
 ### Phase 1: Core Library
 
 1. `@kagal/worker`: Agent DO with SQLite schema
 2. `@kagal/worker`: Supervisor DO
-3. `@kagal/server`: Auth middleware (`kagalAuth`)
-4. `@kagal/server`: Route factory (`createKagalRouter`)
-5. `@kagal/worker`: Control WebSocket with hibernation
-6. `@kagal/worker`: Task queue
-7. `@kagal/agent`: Config, WebSocket loop, reconnection
-8. `@kagal/agent`: Task dispatcher + status reporter
-9. Integration test via demo apps
+3. `@kagal/server`: `kagalAuth` + `createKagalRouter`
+4. `@kagal/worker`: Control WebSocket with hibernation
+5. `@kagal/worker`: Task queue
+6. `@kagal/agent`: Config, WebSocket loop, reconnection
+7. `@kagal/agent`: Task dispatcher + status reporter
+8. Integration test via demo apps
 
 ### Phase 2: Nonce Chain + Clone Detection
 
@@ -604,7 +670,7 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 ### Phase 5: Polish & Publish
 
 1. Documentation and integration guide
-2. Demo applications (vanilla, Hono, Nuxt 4)
+2. Demo applications (vanilla, Hono, itty-router, Nuxt 4)
 
 ---
 
@@ -612,23 +678,36 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
 
 1. **WebSocket Upgrade Mechanics**: Document the
    canonical pattern for upgrading HTTP → WebSocket
-   and handing to the DO.
+   and handing to the DO. Expected pattern:
+   Worker receives upgrade → derives DO stub via
+   `env.KAGAL_AGENT.get(idFromName(agentId))` →
+   forwards via `stub.fetch(request)` → inside DO's
+   `fetch()`: `new WebSocketPair()`,
+   `this.ctx.acceptWebSocket(pair[1], [tag])`,
+   return `Response(null, {status:101, webSocket:pair[0]})`.
 
-2. **`kagalAuth` Middleware Contract**: Define return
-   type, behaviour for `/register`, revoked certs,
-   and missing certs.
+2. **`kagalAuth` Middleware Contract**: Returns
+   `KagalAuthResult | undefined` with shape
+   `{ agentID, role, fingerprint, certExpired }`.
+   Define behaviour for `/register` (allow unregistered
+   fingerprints), revoked certs (check
+   `revoked:<fingerprint>` in KV), and
+   `certPresented === '0'` (reject).
 
 3. **Agent Onboarding Flow**: Define bootstrap JWT
    format, OAuth2 device flow integration, and
-   `POST /register` contract.
+   `POST /register` contract (request body, response
+   shape, what gets written to KV).
 
 4. **First-Connect Nonce Initialisation**: Define
    whether nonce state is created on registration or
-   first WebSocket connect.
+   first WebSocket connect, and whether the DO sends
+   `{ type: 'nonce' }` as the first message.
 
 5. **Certificate Lifecycle**: Define cert issuance
-   callback interface, `cert_renew` task, and
-   `@kagal/ca` reference implementation.
+   callback interface, `cert_renew` task (who
+   initiates, how cert reaches agent, how KV mapping
+   updates), and `@kagal/ca` reference implementation.
 
 6. **DO Worker Routing**: Define how `createKagalHandler`
    routes requests: WebSocket upgrades to Agent DOs,
@@ -638,12 +717,25 @@ Supervisor DO. `demo-nuxt` (Nuxt 4) is planned.
    (all-in-one) vs. multi-Worker (service binding)
    patterns and their trade-offs for upgrade isolation.
 
-8. **Proto Schema Location**: Determine proto file
-   structure and buf.build publishing strategy for
-   the protobuf message definitions.
+8. **Error Message Type**: Consider adding an `error`
+   type to `ServerMessage`:
+   `{ type: 'error'; code: string; message: string }`.
+   Codes: `unknown_agent`, `rate_limited`,
+   `protocol_error`, `version_mismatch`.
+
+9. **Supervisor DO Scope**: Define what fleet-wide
+   coordination the Supervisor DO handles vs. what
+   remains in the consumer's domain.
 
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts
 [server-types]: packages/@kagal-server/src/types.ts
 [agent-types]: packages/@kagal-agent/src/types.ts
 [schema-sql]: packages/@kagal-worker/sql/schema.sql
+[proto-v1]: proto/kagal/v1/
+[proto-task]: proto/kagal/v1/task.proto
+[proto-nonce]: proto/kagal/v1/nonce.proto
+[proto-agent]: proto/kagal/v1/agent.proto
+[proto-envelope]: proto/kagal/v1/envelope.proto
+[cf-limits]: docs/cloudflare-limits.md
+[integration]: docs/integration.md

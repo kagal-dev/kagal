@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package kagal.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "kagal.dev/pkg/proto/kagal/v1;kagal";
+
+// TaskStatus represents the lifecycle state of a task.
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_QUEUED = 1;
+  TASK_STATUS_DISPATCHED = 2;
+  TASK_STATUS_OK = 3;
+  TASK_STATUS_ERROR = 4;
+}
+
+// TaskDispatch dispatches a task from server to agent.
+message TaskDispatch {
+  string id = 1;
+  string action = 2;
+  google.protobuf.Struct params = 3;
+}
+
+// TaskResult reports a task outcome from agent to server.
+message TaskResult {
+  string id = 1;
+  TaskStatus status = 2;
+  google.protobuf.Struct data = 3;
+  string error = 4;
+}
