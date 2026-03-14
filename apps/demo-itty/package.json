@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@kagal/server": "workspace:^",
-    "itty-router": "^5.0.0"
+    "itty-router": "^5.0.23"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260313.1",
