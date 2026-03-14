@@ -107,7 +107,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
       '@types/node':
-        specifier: ^20.19.0
+        specifier: ^20.19.37
         version: 20.19.37
       eslint:
         specifier: ^9.39.4
@@ -144,7 +144,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
       '@types/node':
-        specifier: ^20.19.0
+        specifier: ^20.19.37
         version: 20.19.37
       eslint:
         specifier: ^9.30.0
@@ -187,7 +187,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
       '@types/node':
-        specifier: ^20.19.0
+        specifier: ^20.19.37
         version: 20.19.37
       eslint:
         specifier: ^9.39.4
@@ -247,7 +247,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
       '@types/node':
-        specifier: ^20.19.0
+        specifier: ^20.19.37
         version: 20.19.37
       eslint:
         specifier: ^9.39.4

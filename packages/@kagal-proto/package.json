@@ -52,7 +52,7 @@
   "devDependencies": {
     "@kagal/cross-test": "^0.1.2",
     "@poupe/eslint-config": "^0.8.3",
-    "@types/node": "^20.19.0",
+    "@types/node": "^20.19.37",
     "eslint": "^9.30.0",
     "npm-run-all2": "^8.0.4",
     "publint": "^0.3.18",
@@ -62,7 +62,7 @@
     "vitest": "^4.1.0"
   },
   "engines": {
-    "node": ">= 20.19.2",
+    "node": ">= 20.20.1",
     "pnpm": ">= 10.10.0"
   },
   "publishConfig": {
