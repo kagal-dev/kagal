@@ -153,7 +153,7 @@ importers:
         specifier: ^8.0.4
         version: 8.0.4
       publint:
-        specifier: ^0.3.12
+        specifier: ^0.3.18
         version: 0.3.18
       rimraf:
         specifier: ^6.1.3
