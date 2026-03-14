@@ -1,10 +1,23 @@
 # Kagal
 
-> *Kagal* (𒆍𒃲, Ká.Gal) — Sumerian for "Great Gate".
-
 A library for managing agent fleets over Cloudflare's
 edge. See [DESIGN.md] for architecture and protocol
 details.
+
+## About the name
+
+*Kagal* (𒆍𒃲, Ká.Gal) is named after the Sumerian
+"Great Gate" — the monumental complex that served as the
+heartbeat of ancient city-state administration. In the
+context of this library, Kagal represents the critical
+infrastructure that bridges the chaotic edge with the
+structured cloud.
+
+The library serves the same role for agent fleets:
+a control plane on Cloudflare's edge where agents
+authenticate via mTLS, receive commands over persistent
+WebSockets, and are supervised through Durable Objects.
+Every connection passes through one well-defined gate.
 
 ## Packages
 
