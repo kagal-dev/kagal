@@ -23,7 +23,8 @@ kagal/
 │   │   └── sql/               # SQLite schema
 │   ├── @kagal-proto/          # Generated protobuf-es types
 │   ├── @kagal-server/         # Server/frontend library
-│   └── @kagal-agent/          # Agent CLI + library (citty)
+│   ├── @kagal-agent/          # Agent CLI + library (citty)
+│   └── @kagal-test-utils/     # Shared test utilities (private)
 ├── proto/                     # Protobuf schema (buf.build/kagal/agent)
 │   └── kagal/v1/              # Package kagal.v1
 ├── pkg/proto/                 # Generated Go protobuf types
@@ -48,6 +49,8 @@ kagal/
 - `@kagal/server` — Server library for frontends
 - `@kagal/agent` — TypeScript agent CLI and library
   (citty)
+- `@kagal/test-utils` — Shared test utilities (private,
+  not published)
 - **Demo apps** live under `apps/`
 
 A Go module (`kagal.dev`) is planned for after the
