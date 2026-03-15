@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package kagal.v1;
+
+option go_package = "kagal.dev/pkg/proto/kagal/v1;kagal";
+
+// KagalRole identifies the caller type resolved from
+// the certificate Subject DN.
+enum KagalRole {
+  KAGAL_ROLE_UNSPECIFIED = 0;
+  KAGAL_ROLE_AGENT = 1;
+  KAGAL_ROLE_OPERATOR = 2;
+}
+
+// AgentStatus is the access state resolved by KagalAuth
+// from the AgentRecord booleans.
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_NOT_READY = 1;
+  AGENT_STATUS_READY = 2;
+  AGENT_STATUS_QUARANTINED = 3;
+}
+
+// AgentRecord represents agent state. Stored in
+// agent:<agentID> KV entries and returned by fleet
+// query endpoints.
+message AgentRecord {
+  bool ready = 1;
+  bool quarantined = 2;
+  string name = 3;
+  string last_seen = 4;
+  repeated string groups = 5;
+}
+
+// NameRecord is the value stored in name:<name>
+// KV entries.
+message NameRecord {
+  string agent_id = 1;
+}
+
+// CertRecord is the value stored in cert:<sha256>
+// KV entries.
+message CertRecord {
+  string agent_id = 1;
+  string registered_at = 2;
+}
+
+// RevokedRecord is the value stored in
+// revoked:<sha256> KV entries.
+message RevokedRecord {
+  string revoked_at = 1;
+  string reason = 2;
+  string cert_not_after = 3;
+}
+
+// AuthResult is the resolved identity and state
+// returned by kagalAuth().
+message AuthResult {
+  string agent_id = 1;
+  KagalRole role = 2;
+  string fingerprint = 3;
+  bool cert_expired = 4;
+  AgentStatus agent_status = 5;
+}
+
+// RegistryRecord is a tagged union of all KV value
+// types in the agent registry namespace.
+message RegistryRecord {
+  oneof record {
+    NameRecord name = 1;
+    AgentRecord agent = 2;
+    CertRecord cert = 3;
+    RevokedRecord revoked = 4;
+  }
+}
