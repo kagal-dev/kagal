@@ -1,4 +1,5 @@
-<!-- cSpell:words cloudflared codegen hono itty kagalctl -->
+<!-- cSpell:words certless cloudflared codegen hono itty -->
+<!-- cSpell:words kagalctl TASKQ unquarantine unquarantined -->
 
 # Kagal — Design Document
 
@@ -24,14 +25,17 @@ Kagal ships as four npm packages:
   at [`proto/kagal/v1/`][proto-v1].
 - **`@kagal/worker`** — Durable Object library. Exports
   Agent DO (per-agent WebSocket, SQLite task queue,
-  nonce chain, tunnel splice) and Supervisor DO (fleet
-  queries, agent registry).
+  nonce chain, tunnel splice) and Supervisor DO
+  (registration authority, bulk operations).
 - **`@kagal/server`** — Server library for frontends.
   Exports `createKagalRouter()` (route list + catch-all
   handler) and `kagalAuth()` for consumer routes that
-  need the same mTLS identity resolution. The consumer
-  mounts Kagal into their own Worker (Hono, itty-router,
-  Nitro, raw fetch handler — whatever they prefer).
+  need mTLS access to agents or operators beyond what
+  `@kagal/server` manages internally (e.g. firmware,
+  backups, custom APIs). Portal routes use the
+  consumer's own auth. The consumer mounts Kagal into
+  their own Worker (Hono, itty-router, Nitro, raw
+  fetch handler — whatever they prefer).
 - **`@kagal/agent`** — TypeScript agent CLI and library
   built with citty. Manages the control WebSocket,
   nonce rotation, task execution, and reconnection.
@@ -56,9 +60,9 @@ that scales to unlimited agents at ~$5/month.
 - **Zero idle cost**: Durable Object WebSocket
   Hibernation means 2,000 connected-but-idle agents
   cost nothing.
-- **mTLS-first**: No passwords, no API keys. Every
-  agent and operator authenticates with X.509
-  certificates from a private CA.
+- **mTLS-everywhere**: Every connection uses mTLS.
+  Agents without a CA-signed certificate present a
+  self-signed certificate. No passwords, no API keys.
 - **Clone-aware**: A rolling nonce protocol detects
   cloned agents and quarantines them until a human
   intervenes.
@@ -70,53 +74,380 @@ that scales to unlimited agents at ~$5/month.
 
 ## Architecture
 
-```text
-┌──────────────────────────────────────────────────────┐
-│                  Cloudflare Edge                     │
-│                                                      │
-│  ┌────────────────────┐  ┌─────────────────────────┐ │
-│  │ Frontend Worker    │  │ DO Worker               │ │
-│  │ (@kagal/server)    │  │ (@kagal/worker)         │ │
-│  │                    │  │                         │ │
-│  │ + mTLS auth        │  │ ┌─────────────────────┐ │ │
-│  │ + fleet routes    ───▶│ │ Supervisor DO       │ │ │
-│  │ + WSS forward      │  │ │ - Fleet queries     │ │ │
-│  │ + consumer routes  │  │ │ - Agent registry    │ │ │
-│  └────────────────────┘  │ └─────────────────────┘ │ │
-│                          │ ┌─────────────────────┐ │ │
-│                          │ │ Agent DO            │ │ │
-│                          │ │ - Hibernating WSS   │ │ │
-│                          │ │ - SQLite task queue │ │ │
-│                          │ │ - Nonce chain state │ │ │
-│                          │ │ - Tunnel splice     │ │ │
-│                          │ └─────────────────────┘ │ │
-│                          │                         │ │
-│                          └─────────────────────────┘ │
-└──────────────────────────────────────────────────────┘
-       ▲ WSS (control)       ▲ WSS (tunnel)  ▲ HTTPS
-       │                     │               │
-  ┌────┴──────┐        ┌─────┴────┐    ┌─────┴──────┐
-  │ Agent     │        │ Agent    │    │ Operator   │
-  │ @kagal/   │        │ (tunnel  │    │ (browser / │
-  │  agent    │        │  active) │    │  kagalctl) │
-  └───────────┘        └──────────┘    └────────────┘
+```mermaid
+graph TB
+  subgraph edge["Cloudflare Edge"]
+    direction TB
+    subgraph fw["Frontend Worker · @kagal/server"]
+      AUTH["KagalAuth<br/>RBAC · identity + state"]
+      ROUTES["Fleet routes<br/>+ consumer routes"]
+    end
+    subgraph dw["DO Worker · @kagal/worker"]
+      SUP["Supervisor DO<br/>registration authority<br/>bulk operations"]
+      ADO["Agent DO<br/>hibernating WSS · task queue<br/>nonce chain · tunnel splice"]
+    end
+    KV[("KV<br/>name · cert · agent")]
+    AUTH -- "agent" --> ADO
+    AUTH -- "registration" --> SUP
+    AUTH -- "operator" --> ROUTES
+    AUTH -. "read identity + state" .-> KV
+    ROUTES --> SUP
+    ROUTES --> ADO
+    SUP -- "mint agentID + issue cert" --> KV
+    SUP -- "enqueue tasks" --> ADO
+    ADO -- "publish state" --> KV
+  end
+
+  AGENT["Agent"] -- "mTLS" --> AUTH
+  OP["Operator"] -- "mTLS" --> AUTH
 ```
 
 ### What Kagal Provides vs. What the Consumer Provides
 
 | Kagal provides | Consumer provides |
 |----------------|-------------------|
-| Agent DO class (WebSocket, task queue, nonce chain, tunnel splice) | Worker entry point and HTTP router |
-| Supervisor DO (fleet queries, agent registry) | Application-specific coordination logic |
-| Private CA lifecycle + mTLS auth | Cert issuance callback |
-| Agent registry (KV-backed) | KV namespace binding |
-| TypeScript agent library (control loop, reconnect, task dispatch) | Task handler implementations |
+| Agent DO (WebSocket, task queue, nonce chain, tunnel splice) | Worker entry point and HTTP router |
+| Supervisor DO (registration authority, bulk operations) | Application-specific coordination logic |
+| RBAC access control (KagalAuth) | KV namespace binding |
+| KV-backed routing (name, cert, agent records) | Cert issuance callback (CA) |
+| Agent library (control loop, reconnect, task dispatch) | Task handler implementations |
 | Clone detection + quarantine protocol | Quarantine resolution UI/workflow |
-| Tunnel splice (port forwarding, SSH) | Tunnel client (ProxyCommand, etc.) |
+| Tunnel splice (port forwarding) | Tunnel client (ProxyCommand, etc.) |
+| `kagalAuth()` for consumer mTLS routes | Portal auth (OAuth, sessions, etc.) |
 
 Application-specific storage (firmware, backups) is
 **not** part of core — consumers implement their own
 R2/D1/KV routes.
+
+---
+
+## Identity Model
+
+Kagal separates cryptographic identity from human
+naming:
+
+- **agentID** — Opaque, server-assigned by the
+  Supervisor DO. Immutable for the lifetime of a
+  registration. Re-registration always mints a new
+  agentID. Used internally for DO routing
+  (`idFromName(agentID)`), KV keys, and cert
+  bindings.
+
+- **name** — Human-meaningful, unique, assigned by
+  an operator during quarantine resolution. Can be
+  reassigned: a dead device's name can move to its
+  replacement. An agent that re-registers can reclaim
+  its old name once a human confirms its identity.
+
+KV is the routing layer between these two:
+
+| Key | Value |
+|-----|-------|
+| `name:<name>` | `{ agentID }` |
+| `agent:<agentID>` | `{ name, connected, quarantined, groups, ... }` |
+| `cert:<fingerprint>` | `{ agentID, registered_at }` |
+
+The server and Supervisor resolve names and cert
+fingerprints to agentIDs via KV, then derive the DO
+stub from the agentID hash. No in-memory registry.
+
+---
+
+## PKI — Private Certificate Authority
+
+Kagal uses a private CA for agent authentication.
+**Every connection uses mTLS** — there is no certless
+path. Agents without a CA-signed certificate generate
+a keypair locally, create a self-signed certificate,
+and present it during the TLS handshake. Cloudflare
+sees `certPresented === '1'` but
+`certVerified === 'NONE'` for self-signed certs; the
+Worker distinguishes signed from unsigned via
+`certVerified`.
+
+Each CA-signed agent certificate has dual Extended Key
+Usage (`serverAuth` + `clientAuth`). The CA certificate
+is uploaded to Cloudflare so it can validate incoming
+client certs via `request.cf.tlsClientAuth`.
+
+### PKI Hierarchy
+
+```mermaid
+graph TB
+  CA["Consumer's Root CA<br/>(offline key)"]
+  CA -- signs --> A1["agent.crt"]
+  CA -- signs --> A2["agent.crt"]
+  CA -- signs --> OP["operator.crt"]
+```
+
+Kagal does **not** generate or manage the CA itself.
+The consumer provides the CA — either via `@kagal/ca`
+(a planned reference implementation) or their own CA.
+The **Supervisor DO** calls the consumer's CA callback
+to issue certificates during registration.
+
+The CA **must** embed the agentID (or operator ID)
+and role in the certificate's Subject DN. KagalAuth
+reads these fields from `certSubjectDN` on every
+request — this is how identity resolution avoids KV
+lookups on the hot path.
+
+### Cloudflare mTLS Fields
+
+Cloudflare populates `request.cf.tlsClientAuth` after
+mTLS is enabled on the hostname. Kagal uses
+`certPresented`, `certVerified`, `certSubjectDN`,
+`certFingerprintSHA256`, `certNotBefore`, and
+`certNotAfter`.
+
+| Field | CA-signed cert | Self-signed cert |
+|-------|----------------|------------------|
+| `certPresented` | `'1'` | `'1'` |
+| `certVerified` | `'SUCCESS'` | `'NONE'` |
+| `certFingerprintSHA256` | CA-issued fingerprint | Self-signed fingerprint |
+
+See [`docs/integration.md`][integration] for mTLS
+setup instructions.
+
+---
+
+## Access Control
+
+KagalAuth is a stateless RBAC gateway in the Frontend
+Worker. It reads the caller's identity from the TLS
+certificate and the caller's state from KV, then
+returns a permission set or a typed denial.
+
+### Roles
+
+- **agent** — a registered device connecting to its
+  Agent DO.
+- **operator** — a human or tool managing the fleet.
+  Operator tools (kagalctl, kagal-ssh-proxy) use mTLS
+  with an operator cert. The portal is consumer-owned
+  (OAuth, sessions, etc.) — Kagal doesn't participate
+  in portal auth; the consumer authenticates the human
+  and calls Kagal's route handlers with the resolved
+  identity.
+
+Both mTLS roles (agent and operator) are resolved
+from the **certificate itself** — the CA embeds
+agentID (or operator ID) and role in the Subject DN.
+KagalAuth reads `certSubjectDN` from Cloudflare,
+extracts identity directly — no KV lookup needed for
+identity resolution. KagalAuth checks agent state
+only when the caller's role is `agent`. Portal
+requests bypass KagalAuth entirely — the consumer's
+auth layer is responsible.
+
+### Agent States
+
+| State | Condition | Access |
+|-------|-----------|--------|
+| **guest** | Self-signed cert, or no `agent:<agentID>` record in KV (includes deleted agents) | Open routes only |
+| **bad_cert** | Revoked or `certVerified` failed | Permission denied (403) |
+| **not_connected** | Known agent, WS not established or nonce not verified | WS connect allowed; other agent routes denied (503) |
+| **quarantined** | Connected, nonce verified, but quarantined | Control WS, `cert_renew` task; operators can interact; no tunnels, no custom tasks, not listed as operational |
+| **connected** | WS up, nonce verified, not quarantined | Full permissions for role |
+
+The WS endpoint is the bootstrap route — the only
+route where `not_connected` is an acceptable state.
+Every other agent-facing route requires the agent to
+have completed the WS + nonce handshake.
+
+### Open Routes
+
+The `directory`, `ca`, and `register` endpoints skip
+identity resolution entirely. Any mTLS connection
+(including self-signed or expired) can reach them.
+The registration handler inspects the cert directly
+and treats it as evidence — an expired CA-signed cert
+is stronger proof than a self-signed cert. This is
+how the **offline-resilient** principle works: an
+agent whose cert expired re-registers with the
+expired cert as proof of previous identity.
+
+### KagalAuth Resolution
+
+For non-open routes, KagalAuth resolves identity
+from the certificate and state from KV:
+
+1. Check `certPresented` from Cloudflare. If
+   `'0'` → reject (403, no certificate).
+2. Check `certVerified` from Cloudflare:
+   - `'SUCCESS'` → CA-signed, proceed.
+   - `'NONE'` → not CA-signed (self-signed or unknown
+     CA) → **guest**.
+   - `'FAILED'` → cert rejected → **bad_cert**.
+3. Extract `{ id, role }` from `certSubjectDN`. If
+   not parseable → **guest**.
+4. Check `revoked:<fingerprint>` in KV. If exists →
+   **bad_cert**.
+5. If `role === 'operator'` → operator permissions
+   granted. Done. *(1 KV read)*
+6. If `role === 'agent'` → read `agent:<agentID>`
+   from KV. If missing → **guest**. *(2 KV reads)*
+7. Combine role + state flags (`connected`,
+   `quarantined`) → permission set or typed denial.
+   *(2 KV reads)*
+
+### Name Resolution
+
+Routes use agentID as the canonical `:id` parameter.
+If a request uses a name, the server resolves
+`name:<name>` → agentID via KV and redirects to the
+canonical URL.
+
+### State Transitions
+
+The Supervisor creates the initial `agent:<agentID>`
+entry during registration (`connected: false`,
+`quarantined: true`). After first connect, the Agent
+DO owns all subsequent writes to `agent:<agentID>`:
+
+- **First connect (no nonce state)** →
+  initialise nonce chain,
+  `connected: true, quarantined: true`
+- **WS connect + nonce valid** →
+  `connected: true` (quarantine preserved from
+  DO's SQLite state)
+- **WS connect + nonce mismatch** →
+  `connected: true, quarantined: true`
+- **WS disconnect** → `connected: false`
+- **`unquarantine` task received** →
+  `quarantined: false`
+
+KagalAuth reads these flags on subsequent requests.
+There is a brief race window between the WS connect
+and the KV write, but agents should not access
+non-WS routes during that window.
+
+---
+
+## Agent Connection Flow
+
+Every agent — new or returning — starts by fetching
+a directory from the server. The directory describes
+available endpoints and server capabilities. No
+hardcoded paths.
+
+After directory discovery, the agent takes one of two
+paths depending on whether it holds a valid
+certificate.
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant S as Server (KagalAuth)
+  participant KV as KV
+  participant SUP as Supervisor DO
+  participant DO as Agent DO
+
+  A->>S: GET /directory
+  S-->>A: endpoints + capabilities
+
+  alt Has CA-signed certificate
+    A->>S: WSS connect (mTLS)
+    Note over S: extract agentID + role from certSubjectDN
+    S->>KV: check revoked:‹fingerprint›
+    S->>KV: read agent:‹agentID›
+    KV-->>S: { connected, quarantined }
+    Note over S: not_connected accepted for WS
+    S->>DO: handover (agentID hash)
+    A->>DO: hello { nonce, boot_count, hw_serial, capabilities }
+    DO->>DO: validate nonce
+    DO->>KV: write agent state
+    alt Nonce valid
+      DO-->>A: nonce { new }
+      DO-->>A: task { queued… }
+    else Nonce mismatch
+      DO-->>A: quarantine { reason }
+    end
+  else Self-signed certificate
+    A->>S: POST /register (proof bag)
+    Note over A,S: proof: JWT, old cert,<br/>hw signature, or nothing
+    S->>SUP: registration request + proof
+    SUP->>SUP: mint agentID + issue cert
+    SUP->>KV: write agent + cert entries
+    SUP-->>A: { agentID, cert, quarantined }
+    Note over A: reconnects with CA-signed cert
+  end
+```
+
+### Directory Discovery
+
+The directory endpoint does not require identity
+verification — any mTLS connection (including
+self-signed) can fetch it. The response is JSON:
+
+```json
+{
+  "version": 1,
+  "base": "/kagal",
+  "endpoints": {
+    "register": "/kagal/register",
+    "ws": "/kagal/agents/{id}/ws",
+    "tunnel": "/kagal/agents/{id}/tunnel",
+    "ca": "/kagal/pki/ca.crt"
+  },
+  "capabilities": ["tasks", "tunnel"]
+}
+```
+
+- **version** — protocol version for compatibility
+  negotiation.
+- **base** — prefix for all Kagal routes.
+- **endpoints** — URL templates. `{id}` is a
+  placeholder the agent substitutes with its agentID.
+- **capabilities** — what the server supports
+  (tunnels, task types, etc.). The agent's `Hello`
+  message advertises its own capabilities in return.
+
+The directory is agent-facing. Operator endpoints
+(`tasks`, `agents`, `claim`, `revoke`, `delete`) are
+discovered out-of-band (documentation, kagalctl
+config).
+
+### Certified Path
+
+An agent with a CA-signed certificate connects
+directly to the agent endpoint:
+
+1. **KagalAuth** extracts agentID + role from
+   `certSubjectDN`. Checks revocation. Reads
+   `agent:<agentID>` for state. For the WS endpoint,
+   `not_connected` is accepted.
+2. **Handover** to the Agent DO derived from
+   `idFromName(agentID)`.
+3. **Hello** — agent sends capabilities, nonce,
+   `boot_count`, `hw_serial`. The DO validates the
+   nonce and publishes state to KV.
+4. **Steady state** — nonce rotation, task dispatch,
+   hibernation. Non-WS routes now accessible.
+
+### Registration Path
+
+An agent with a self-signed certificate (or whose
+CA-signed certificate was rejected) connects to the
+registration endpoint. It presents whatever proof of
+identity it has:
+
+| Proof | Trust level |
+|-------|-------------|
+| Nothing (self-signed cert) | Lowest — anonymous device |
+| JWT onboarding claim | Signed assertion from provisioning system |
+| Expired CA-signed certificate | Previous identity — offline-resilient re-registration |
+| Hardware signature | Device attestation |
+| Combination | Highest — multiple factors |
+
+The Supervisor evaluates the proof, mints a fresh
+agentID, issues a certificate (via the consumer's CA
+callback), and writes the KV entries. The agent
+receives its new agentID and certificate, then
+reconnects via the certified path. After the WS +
+nonce handshake completes, the agent enters
+`quarantined` state until an operator confirms its
+identity and assigns a name.
 
 ---
 
@@ -126,8 +457,8 @@ The Durable Object library. Exports two DO classes:
 
 - **Agent DO** — One instance per agent. Manages
   WebSocket, task queue, nonce chain, tunnel splice.
-- **Supervisor DO** — Singleton. Fleet queries,
-  agent registry, cross-agent operations.
+- **Supervisor DO** — Singleton. Registration
+  authority, name assignment, bulk operations.
 
 Type definitions and interfaces are in
 [`packages/@kagal-worker/src/types.ts`][worker-types].
@@ -160,20 +491,53 @@ to the DO Worker via the service binding.
 Lifecycle hooks and DO-level configuration live in
 `KagalWorkerConfig` (see `@kagal/worker` above).
 
-### Core Routes
+### Endpoint Categories
 
-```text
-POST   /register             — agent self-registration
-GET    /agents               — list all agents (operator)
-GET    /agents/:id           — get agent details (operator)
-POST   /agents/:id/tasks     — enqueue a task (operator)
-GET    /agents/:id/tasks     — list tasks (operator)
-GET    /agents/:id/tasks/:task_id — get task status
-POST   /agents/:id/claim     — claim a quarantined agent
-WS     /ws/:id               — agent control WebSocket
-WS     /agents/:id/tunnel    — tunnel data WebSocket
-GET    /pki/ca.crt           — download root CA cert
+Actual paths are defined in the directory response
+(see [Directory Discovery](#directory-discovery)) and
+detailed in [`docs/api.md`][api]. The design groups
+endpoints by backend and access level:
+
+```mermaid
+graph LR
+  subgraph fw["Frontend Worker"]
+    DIR["directory"]
+    PKI["ca"]
+  end
+  subgraph sup["Supervisor DO"]
+    REG["register"]
+    CLAIM["claim"]
+    REV["revoke"]
+    DEL["delete"]
+  end
+  subgraph ado["Agent DO (per agent)"]
+    WS["ws"]
+    TUN["tunnel"]
+    TASK["tasks"]
+  end
+  subgraph kv["KV (direct read)"]
+    LIST["agents (list)"]
+    DET["agents (detail)"]
+  end
 ```
+
+| Endpoint | Backend | Access | Purpose |
+|----------|---------|--------|---------|
+| `directory` | Frontend Worker | open | Endpoint discovery |
+| `ca` | Frontend Worker | open | Download root CA cert |
+| `register` | Supervisor DO | open | Agent registration |
+| `ws` | Agent DO | agent (not_connected ok) | Control WebSocket, hibernation |
+| `tunnel` | Agent DO | agent/operator (connected) | On-demand port forwarding |
+| `tasks` | Agent DO | operator | Enqueue, list, and query tasks |
+| `agents` | KV | operator | List and inspect agents |
+| `claim` | Supervisor DO | operator | Name assignment + unquarantine |
+| `revoke` | Supervisor DO | operator | Cert revocation + disconnect |
+| `delete` | Supervisor DO | operator | Remove agent + cleanup KV |
+
+`:id` in agent-scoped endpoints is always agentID.
+Requests using a name are redirected to the canonical
+agentID URL (see
+[Name Resolution](#name-resolution)).
 
 Application-specific routes (firmware, backups, etc.)
 are **not** part of the core router.
@@ -210,7 +574,6 @@ Type definitions and interfaces are in
 
 ```bash
 kagal run --server https://fleet.example.com/kagal \
-          --agent-id agent-001 \
           --cert agent.crt --key agent.key
 ```
 
@@ -245,7 +608,7 @@ Generated Go protobuf types are at
 Each agent maintains a single persistent WebSocket to
 its Agent DO.
 
-- **URL**: `wss://<host>/<prefix>/ws/<agent_id>`
+- **URL**: resolved from the directory's `ws` endpoint
 - **Keep-alive**: `setWebSocketAutoResponse` handles
   ping/pong without waking the DO (zero cost).
 - **Reconnection**: Exponential backoff with jitter:
@@ -277,32 +640,26 @@ Proto files are split by topic:
   protocol errors and `Any` extension fields for
   consumer messages.
 
-### Connection Flow
+### Hello & Capabilities
 
-```text
-Agent                           Agent DO
-  │                                   │
-  │──── WSS connect (mTLS cert) ─────▶│
-  │                                   │
-  │──── hello { nonce, boot_count,    │
-  │             hw_serial }     ─────▶│  Validate nonce
-  │                                   │
-  │◀──── nonce { nonce: new } ────────│  Rotate nonce
-  │                                   │
-  │◀──── task { ... } ────────────────│  Dispatch queued
-  │                                   │
-  │──── status { version, ... } ─────▶│  Update metadata
-  │                                   │
-  │      ... idle (DO hibernates) ... │
-  │                                   │
-```
+The `Hello` message is the first application-level
+message after WebSocket connect. It carries the
+agent's nonce, `boot_count`, `hw_serial`, and a list
+of **capabilities** — task types the agent supports,
+tunnel availability, firmware update support, etc.
+The Agent DO uses capabilities to decide what to
+dispatch. See
+[Agent Connection Flow](#agent-connection-flow) for
+the full sequence.
 
 ---
 
 ## Nonce Chain Protocol
 
 The nonce chain provides **clone detection** and
-**offline resilience**.
+**offline resilience**. Nonce validation is performed
+entirely by the Agent DO — KagalAuth does not
+participate.
 
 ### State
 
@@ -311,7 +668,18 @@ Stored in the Agent DO's `nonce_state` table (see
 `nonce_previous`, `rotated_at`, `boot_count`,
 `hw_serial`.
 
+### First Connect
+
+When an Agent DO receives a hello with no existing
+nonce state (freshly registered agent), it initialises
+the nonce chain: generates `nonce_current`, stores
+`boot_count` and `hw_serial`, and sends the initial
+nonce to the agent.
+
 ### Validation Logic
+
+On subsequent connects, the DO validates the agent's
+nonce against its own SQLite state:
 
 - **Matches current nonce** → OK
 - **Matches previous nonce within grace period** → OK
@@ -321,115 +689,73 @@ Stored in the Agent DO's `nonce_state` table (see
   quarantine (replay)
 - **Mismatch + same serial, new boot** → quarantine
   (state loss)
-- **No state** → first connect, onboarding quarantine
 
 Quarantine reasons: `hw_serial_mismatch` (clone),
 `nonce_replay` (stale boot count), or
 `nonce_mismatch_new_boot` (state loss).
 
-### Quarantine Permissions
-
-| Capability | Normal | Quarantined |
-|-----------|--------|-------------|
-| Control WebSocket | yes | yes |
-| Receive `cert_renew` task | yes | yes |
-| Receive custom tasks | yes | no |
-| SSH tunnel | yes | no |
-| Upload backups | yes | no |
-| Pull firmware | yes | no |
-
-### Quarantine & Claim Flow
-
-Quarantine covers two cases: **onboarding** (new
-agents without a certificate) and **clone detection**
-(nonce mismatch on existing agents). In both cases
-the agent is related to an identity but its true
-ownership is unproven: a bootstrap JWT validates the
-token, not the physical device; a clone shares
-credentials with the original. Quarantine holds the
-agent (connected but untrusted) until a human
-confirms its identity. Both use the same claim flow:
-
-1. Agent is quarantined (contained but connected)
-2. Agent displays an OAuth2 device code
-3. Human enters the code, authenticates, and
-   identifies the agent
-4. For onboarding: server issues a certificate
-5. For clones: server resets the nonce chain
-6. Agent is un-quarantined
+After successful validation, the DO rotates the nonce
+and publishes connection state to KV (see
+[State Transitions](#state-transitions)).
 
 ---
 
-## PKI — Private Certificate Authority
+## Quarantine
 
-Kagal uses a private CA for agent authentication.
-Each agent gets one certificate with dual Extended Key
-Usage (`serverAuth` + `clientAuth`). The CA certificate
-is uploaded to Cloudflare so it can validate incoming
-client certs via `request.cf.tlsClientAuth`.
+Quarantine restricts an agent to a minimal permission
+set while its identity is unproven (see
+[Access Control](#access-control) for the permission
+table). There are two quarantine contexts:
 
-Cert issuance uses a consumer-provided callback,
-allowing custom CA implementations or external
-providers. A reference CA package (`@kagal/ca` or
-similar) is planned. Future: ACME support with an
-external identity token.
+### Registration Quarantine
 
-### PKI Hierarchy
+Every newly registered agent starts quarantined. The
+Supervisor minted an agentID and issued a certificate,
+but no human has confirmed the device's identity.
 
-```text
-┌──────────────────────┐
-│  Consumer's Root CA  │  Generated once, kept offline
-│  (offline key)       │  Consumer owns this — not Kagal
-└──────────┬───────────┘
-           │ signs
-    ┌──────┼──────────────┐
-    ▼      ▼              ▼
-  agent   agent        operator
-   .crt    .crt          .crt
-```
+1. Agent registers → Supervisor mints agentID + cert
+2. Agent reconnects with new cert, completes nonce
+   handshake, enters quarantine
+3. Agent initiates an OAuth2 device authorization
+   flow (consumer-configured provider) and receives
+   a device code + user code + verification URI
+4. Agent presents the user code to a technician
+   (screen, QR, serial console — consumer-provided
+   display hook)
+5. Technician authorizes, agent receives the token
+   and sends it to the server via the control WS
+6. Server validates the token; operator assigns a
+   **name** (possibly reclaiming a previous name),
+   groups, etc.
+7. Supervisor writes `name:<name>` → agentID in KV
+   and enqueues an `unquarantine` task to the Agent DO
+8. Agent DO processes the task, writes
+   `quarantined: false` to KV
 
-Kagal does **not** generate or manage the CA itself.
-The consumer provides the CA — either via `@kagal/ca`
-(a planned reference implementation) or their own CA.
-Kagal only consumes the cert fields provided by
-Cloudflare's TLS termination
-(`request.cf.tlsClientAuth`).
+### Clone Detection Quarantine
 
-### What Kagal Reads from the Cert
+The Agent DO detects a nonce mismatch and quarantines
+the connection. The agent has a valid certificate and
+agentID but the nonce chain proves it may be a clone.
 
-Cloudflare populates `request.cf.tlsClientAuth` after
-mTLS is enabled on the hostname. Kagal uses
-`certPresented`, `certVerified`, `certSubjectDN`,
-`certFingerprintSHA256`, `certNotBefore`, and
-`certNotAfter`.
+1. Agent DO detects nonce mismatch → quarantine
+2. Operator reviews: is this the real device or a
+   clone?
+3. If real: Supervisor enqueues a `nonce_reset` task.
+   Agent DO resets the nonce chain, writes
+   `quarantined: false` to KV.
+4. If clone: operator revokes the cert via the
+   `revoke` endpoint. Supervisor writes
+   `revoked:<sha256>` to KV and enqueues a
+   `disconnect` task. Agent hits `bad_cert` on
+   reconnect and must re-register.
 
-### Agent Onboarding
+### Name History
 
-New agents start without a certificate:
-
-1. Agent connects with a bootstrap JWT containing
-   signed identity claims and optionally a reference
-   to a previously rejected certificate
-2. Server pre-registers the agent and quarantines it
-3. Agent displays an OAuth2 device code
-4. Human identifies the agent: entity, group, role
-5. Server issues a client certificate via the
-   consumer's cert callback
-6. Agent reconnects with mTLS — fully operational
-
-### Steady-State Identity Resolution
-
-1. Agent presents client cert during TLS handshake
-2. Cloudflare populates `request.cf.tlsClientAuth`
-3. Auth middleware reads `certFingerprintSHA256`
-4. Looks up `cert:<fingerprint>` in KV →
-   `{ agent_id, role }`
-
-See [`docs/integration.md`][integration] for mTLS
-setup instructions.
-
-TBD: JWT signing authority, bootstrap endpoint
-contract, cert issuance callback interface.
+The old agentID record stays as history — operators
+can trace that a name was previously bound to a
+different agentID. Names can also be reassigned to
+entirely different hardware (replacing a dead device).
 
 ---
 
@@ -445,17 +771,23 @@ See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 
 - **Hibernation**: The DO hibernates when no messages
   flow. `setWebSocketAutoResponse` handles keep-alive.
+- **Nonce validation**: On hello, validates the nonce
+  chain (or initialises it on first connect). See
+  [Nonce Chain Protocol](#nonce-chain-protocol).
+- **KV state publication**: On connect, disconnect,
+  and status changes, writes `agent:<agentID>` to KV
+  (connected, quarantined, last_seen). This is the
+  authority that KagalAuth reads — no Supervisor
+  notification needed.
 - **Task dispatch**: On connect/reconnect, all `queued`
   tasks are dispatched. Tasks in `dispatched` state for
   over 5 minutes are reset to `queued` on reconnect.
+  Tasks may originate from operators (via Supervisor)
+  or from the Supervisor itself (`unquarantine`,
+  `nonce_reset`, `cert_renew`, `disconnect`).
 - **Tunnel splice**: Two tagged WebSockets
   (agent-side + client-side). Binary frames forwarded
-  bidirectionally. SSH is the primary use case.
-- **Supervisor notifications**: On connect, disconnect,
-  and status changes, notifies the Supervisor DO to
-  update fleet state. Trivial per-agent KV updates
-  (e.g. `agent:<id>` online flag) may be written
-  directly.
+  bidirectionally.
 - **Hooks**: Calls lifecycle callbacks
   (`onAgentConnect`, `onAgentDisconnect`,
   `onAgentError`, `onQuarantine`, etc.) for consumer
@@ -465,31 +797,43 @@ See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 
 ## Supervisor Durable Object
 
-Singleton DO for fleet-level operations. Agent DOs
-notify the Supervisor of lifecycle events (connect,
-disconnect, status changes); the Supervisor
-accumulates these into fleet state. The DO Worker's
-fetch handler routes agent WebSocket upgrades directly
-to Agent DOs (preserving hibernation); fleet and
-operator requests go through the Supervisor.
+The Supervisor DO is the **registration authority**
+and fleet coordinator. It is **not** in the agent
+WebSocket path — certified agents are routed directly
+to their Agent DOs, preserving the hibernation cost
+model.
+
+The Supervisor communicates with Agent DOs by
+**enqueueing tasks** via the DO Worker service
+binding. This is how quarantine resolution,
+revocation, and deletion reach connected agents —
+the task wakes the Agent DO from hibernation.
 
 ### Responsibilities
 
-- **Fleet state**: Accumulates lifecycle events from
-  Agent DOs to maintain fleet-wide state (online
-  count, agent list, metadata) in KV.
-- **Fleet queries**: List agents, get status, bulk
-  operations across the fleet.
-- **Task dispatch**: Enqueue tasks to Agent DOs on
-  behalf of operators.
-- **Cross-agent operations**: Broadcast tasks, bulk
-  queries, and coordination that individual Agent DOs
-  cannot handle in isolation.
-
-The Supervisor is **not** in the agent WebSocket path.
-Agent WebSocket connections are routed by the DO
-Worker's fetch handler directly to Agent DOs, keeping
-the hibernation cost model intact.
+- **Registration**: Evaluates proof of identity,
+  mints agentIDs, issues certificates (via the
+  consumer's CA callback), and writes KV entries.
+  This is the Supervisor's primary role.
+- **Deletion**: The inverse of registration. Enqueues
+  a cleanup task to the Agent DO, then removes
+  `agent:<agentID>`, `cert:<fingerprint>`, and
+  `name:<name>` entries from KV. Distinct from
+  revocation (which only marks a cert invalid).
+- **Name assignment**: Binds human-meaningful names
+  to agentIDs during quarantine resolution. Manages
+  name uniqueness and reassignment.
+- **Quarantine resolution**: On claim, writes
+  `name:<name>` to KV and enqueues an `unquarantine`
+  task to the Agent DO.
+- **Revocation**: Writes `revoked:<sha256>` to KV and
+  enqueues a `disconnect` task to the Agent DO.
+- **Bulk operations**: Broadcast tasks, bulk queries,
+  and coordination that individual Agent DOs cannot
+  handle in isolation.
+- **Fleet queries**: List agents, get status. Simple
+  queries go through KV directly; the Supervisor
+  handles operations that span multiple agents.
 
 ---
 
@@ -497,9 +841,26 @@ the hibernation cost model intact.
 
 | Key Pattern | Value |
 |-------------|-------|
-| `cert:<sha256>` | `{"agent_id":"...","role":"agent","registered_at":"..."}` |
+| `name:<name>` | `{"agentID":"..."}` |
+| `agent:<agentID>` | `{"name":"...","connected":true,"quarantined":false,"last_seen":"...","groups":["..."]}` |
+| `cert:<sha256>` | `{"agentID":"...","registered_at":"..."}` |
 | `revoked:<sha256>` | `{"revoked_at":"...","reason":"..."}` |
-| `agent:<agent_id>` | `{"online":true,"last_seen":"...","version":"...","quarantined":false,"pending_tasks":0}` |
+
+The `name:` key is a pointer — it resolves a
+human-meaningful name to an agentID and nothing else.
+
+The `cert:` key is an **administrative record** — not
+in the KagalAuth hot path. Identity (agentID, role)
+is embedded in the certificate itself and extracted
+from `certSubjectDN`. The `cert:` key exists for
+registration tracking, audit, and revocation lookups
+(`revoked:<sha256>` references the same fingerprint).
+
+The `agent:` key is the **permissions cache** that
+KagalAuth reads on every authenticated agent request.
+The Supervisor creates it during registration; the
+Agent DO owns all subsequent writes. `groups` are
+tags/labels for fleet filtering and UI.
 
 ---
 
@@ -513,219 +874,60 @@ either side closes.
 
 ### Port Forwarding Flow
 
-1. Operator calls `POST /agents/:id/tasks` with
-   `{"action": "tunnel_open", "params": {"port": N}}`
+1. Operator enqueues a `tunnel_open` task
+   (`{"port": N}`) via the `tasks` endpoint
 2. DO dispatches to agent via control WebSocket
-3. Agent opens a data WebSocket to
-   `/agents/:id/tunnel?role=agent`
+3. Agent opens a data WebSocket to the `tunnel`
+   endpoint (`role=agent`)
 4. Agent dials `localhost:N`, splices TCP ↔ WebSocket
-5. Client connects via
-   `/agents/:id/tunnel?role=client`
+5. Client connects to the same `tunnel` endpoint
+   (`role=client`)
 6. DO splices the two WebSockets bidirectionally
 7. Tunnel closes when either side disconnects
 
-### SSH Tunnels
+### Extensions
 
-SSH is port forwarding to `:22` with a
-`ProxyCommand` helper for transparent `ssh` usage.
-
-Uses `kagal-ssh-proxy` (planned Go binary) as
-ProxyCommand:
-
-```text
-Host kagal-*
-    ProxyCommand kagal-ssh-proxy %h
-    User root
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-```
-
-> **Security note:** `StrictHostKeyChecking no` and
-> `UserKnownHostsFile /dev/null` disable SSH host key
-> verification. In practice, the mTLS control channel
-> already authenticates agents, and host keys typically
-> don't change without also changing the agent ID.
-> For stricter environments, alternatives include
-> `StrictHostKeyChecking` with a managed `known_hosts`,
-> SSH CA-based host key signing, or distributing host
-> keys via the task queue.
+Tunnels and tasks are core primitives — higher-level
+protocols compose on top of them. SSH access is the
+primary example: `kagal-ssh-proxy` uses a tunnel for
+transport, tasks for key distribution and host
+verification, and `ProxyCommand` for client
+integration. See [`docs/integration.md`][integration]
+for SSH configuration. Other protocols (VNC, HTTP
+proxy, custom RPC) can be built the same way.
 
 ---
 
 ## Cost Model
 
-### Cloudflare Workers Paid Plan: $5/month
-
-The key insight: **WebSocket Hibernation** means idle
-agents cost nothing. `setWebSocketAutoResponse` handles
-pings without waking the DO. The DO only incurs charges
-when actively processing a task or tunnel session.
-
-### Included Monthly Quotas
-
-| Resource | Included | Overage |
-|----------|----------|---------|
-| Worker requests | 10M | $0.30/M |
-| DO requests | 1M | $0.15/M |
-| DO duration | 400K GB-s | $12.50/M GB-s |
-| KV reads | 10M | $0.50/M |
-| KV writes | 1M | $5.00/M |
-| KV storage | 1 GB | $0.50/GB |
-| DO storage (SQLite) | 5 GB | $0.20/GB |
-
-Incoming WebSocket messages bill at a **20:1 ratio**
-(100 messages = 5 billable DO requests). Outgoing
-messages and protocol-level pings are free.
-
-### 2,000-Agent Estimate
-
-| Resource | Usage | Quota | % |
-|----------|-------|-------|---|
-| Worker requests | ~200K/mo | 10M | 2% |
-| DO requests | ~90K/mo | 1M | 9% |
-| DO duration | ~3,800 GB-s | 400K GB-s | 1% |
-| DO storage | ~20MB | 5 GB | <1% |
-| KV reads | ~50K/mo | 10M | <1% |
-| KV writes | ~100K/mo | 1M | 10% |
-
-2,000 connected-but-idle agents with ~10 messages/day
-each. The fleet fits comfortably within the $5/month
-plan.
+**WebSocket Hibernation** means idle agents cost
+nothing. `setWebSocketAutoResponse` handles pings
+without waking the DO. The DO only incurs charges when
+actively processing a task or tunnel session. A fleet
+of 2,000 connected-but-idle agents fits comfortably
+within the Cloudflare Workers Paid plan ($5/month).
 
 See [`docs/cloudflare-limits.md`][cf-limits] for
-platform limits relevant to this architecture.
+platform quotas, billing details, and usage estimates.
 
 ---
 
-## Demo Structure
+## Deployment Topologies
 
-The repository includes demo applications for local
-development with `pnpm dev:demo-*`:
+The reference architecture uses two Workers connected
+by a service binding:
 
-```text
-apps/
-├── demo-hono/           # Hono frontend
-│   ├── src/index.ts
-│   └── wrangler.toml
-├── demo-itty/           # itty-router frontend
-│   ├── src/index.ts
-│   └── wrangler.toml
-├── demo-vanilla/        # Raw fetch handler
-│   ├── src/index.ts
-│   └── wrangler.toml
-└── demo-worker/         # Deploys Agent + Supervisor DOs
-    ├── src/index.ts
-    └── wrangler.toml
-```
+- **Frontend Worker** — runs `@kagal/server`, handles
+  mTLS auth, fleet routes, and consumer routes.
+- **DO Worker** — runs `@kagal/worker`, hosts Agent
+  and Supervisor DOs.
 
-Each frontend Worker connects to the DO Worker via a
-`KAGAL_WORKER` service binding. Agent WebSocket
-upgrades are routed directly to Agent DOs; fleet
-operations go through the Supervisor DO.
+A single-Worker topology (all-in-one) is also
+possible for simpler deployments but loses upgrade
+isolation between the routing layer and the DOs.
 
----
-
-## Implementation Phases
-
-### Phase 0: Proto Schema + Codegen
-
-1. Set up buf.build CI publishing
-
-### Phase 1: Core Library
-
-1. `@kagal/worker`: Agent DO with SQLite schema
-2. `@kagal/worker`: Supervisor DO
-3. `@kagal/server`: `kagalAuth` + `createKagalRouter`
-4. `@kagal/worker`: Control WebSocket with hibernation
-5. `@kagal/worker`: Task queue
-6. `@kagal/agent`: Config, WebSocket loop, reconnection
-7. `@kagal/agent`: Task dispatcher + status reporter
-8. Integration test via demo apps
-
-### Phase 2: Nonce Chain + Clone Detection
-
-1. `@kagal/worker`: Nonce state in DO SQLite
-2. `@kagal/worker`: Nonce validation + quarantine
-3. `@kagal/server`: Quarantine state + claim endpoint
-4. `@kagal/agent`: Nonce persistence, hello message
-5. Test: clone detection, grace window, claim flow
-6. `@kagal/server`: Agent onboarding (bootstrap JWT,
-   cert issuance callback)
-
-### Phase 3: Tunnels
-
-1. `@kagal/worker`: Tunnel WebSocket splice in DO
-2. `@kagal/agent`: Tunnel handler (port forwarding)
-3. SSH ProxyCommand helper
-4. Test: full SSH session through the relay
-
-### Phase 4: Go Agent (Planned)
-
-1. `pkg/agent`: Go agent library
-2. `cmd/kagal`: Reference agent binary
-3. `cmd/kagalctl`: Fleet management CLI
-4. `cmd/kagal-ssh-proxy`: SSH ProxyCommand helper
-5. Test: Go agent ↔ TypeScript server
-
-### Phase 5: Polish & Publish
-
-1. Documentation and integration guide
-2. Demo applications (vanilla, Hono, itty-router, Nuxt 4)
-
----
-
-## TBD — Open Questions
-
-1. **WebSocket Upgrade Mechanics**: Document the
-   canonical pattern for upgrading HTTP → WebSocket
-   and handing to the DO. Expected pattern:
-   Worker receives upgrade → derives DO stub via
-   `env.KAGAL_AGENT.get(idFromName(agentId))` →
-   forwards via `stub.fetch(request)` → inside DO's
-   `fetch()`: `new WebSocketPair()`,
-   `this.ctx.acceptWebSocket(pair[1], [tag])`,
-   return `Response(null, {status:101, webSocket:pair[0]})`.
-
-2. **`kagalAuth` Middleware Contract**: Returns
-   `KagalAuthResult | undefined` with shape
-   `{ agentID, role, fingerprint, certExpired }`.
-   Define behaviour for `/register` (allow unregistered
-   fingerprints), revoked certs (check
-   `revoked:<fingerprint>` in KV), and
-   `certPresented === '0'` (reject).
-
-3. **Agent Onboarding Flow**: Define bootstrap JWT
-   format, OAuth2 device flow integration, and
-   `POST /register` contract (request body, response
-   shape, what gets written to KV).
-
-4. **First-Connect Nonce Initialisation**: Define
-   whether nonce state is created on registration or
-   first WebSocket connect, and whether the DO sends
-   `{ type: 'nonce' }` as the first message.
-
-5. **Certificate Lifecycle**: Define cert issuance
-   callback interface, `cert_renew` task (who
-   initiates, how cert reaches agent, how KV mapping
-   updates), and `@kagal/ca` reference implementation.
-
-6. **DO Worker Routing**: Define how `createKagalHandler`
-   routes requests: WebSocket upgrades to Agent DOs,
-   fleet operations to Supervisor DO.
-
-7. **Deployment Topologies**: Document single-Worker
-   (all-in-one) vs. multi-Worker (service binding)
-   patterns and their trade-offs for upgrade isolation.
-
-8. **Error Message Type**: Consider adding an `error`
-   type to `ServerMessage`:
-   `{ type: 'error'; code: string; message: string }`.
-   Codes: `unknown_agent`, `rate_limited`,
-   `protocol_error`, `version_mismatch`.
-
-9. **Supervisor DO Scope**: Define what fleet-wide
-   coordination the Supervisor DO handles vs. what
-   remains in the consumer's domain.
+See the demo applications under `apps/` and
+[`docs/integration.md`][integration] for examples.
 
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts
@@ -737,5 +939,6 @@ operations go through the Supervisor DO.
 [proto-nonce]: proto/kagal/v1/nonce.proto
 [proto-agent]: proto/kagal/v1/agent.proto
 [proto-envelope]: proto/kagal/v1/envelope.proto
+[api]: docs/api.md
 [cf-limits]: docs/cloudflare-limits.md
 [integration]: docs/integration.md
