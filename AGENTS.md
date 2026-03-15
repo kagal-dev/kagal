@@ -46,7 +46,8 @@ kagal/
 
 ### npm Packages
 
-- `@kagal/proto` — Generated protobuf-es wire types
+- `@kagal/proto` — Generated protobuf-es types (wire
+  protocol + registry records, enums, auth result)
 - `@kagal/worker` — Durable Object library (Agent DO,
   Supervisor DO)
 - `@kagal/server` — Server library for frontends

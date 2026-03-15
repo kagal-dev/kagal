@@ -127,4 +127,25 @@ for a minimal example forwarding to the gateway.
 3. Do **not** create a WAF rule to block unverified
    certs — Kagal handles auth in the Worker
 
+## SSH via `kagal-ssh-proxy`
+
+`kagal-ssh-proxy` acts as an SSH `ProxyCommand`,
+opening a tunnel WebSocket and splicing it to
+stdin/stdout.
+
+```text
+Host kagal-*
+    ProxyCommand kagal-ssh-proxy %h
+    User root
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+```
+
+> **Security note:** `StrictHostKeyChecking no` and
+> `UserKnownHostsFile /dev/null` disable SSH host key
+> verification. The mTLS control channel already
+> authenticates agents. For stricter environments:
+> managed `known_hosts`, SSH CA host key signing, or
+> distributing host keys via the task queue.
+
 [demo-vanilla]: ../apps/demo-vanilla/src/index.ts
