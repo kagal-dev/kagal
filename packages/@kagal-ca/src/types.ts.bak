@@ -1,0 +1,62 @@
+export interface CAEnv {
+  // Required: Root CA certificate chain (PEM-encoded)
+  CA_CERT: string
+
+  // Required: Root CA private key (PEM-encoded)
+  CA_KEY: string
+
+  // Required: KV namespace for cert tracking
+  CA_INDEX: KVNamespace
+}
+
+export interface CAConfig {
+  // Certificate validity duration in days.
+  // Default: 365
+  validityDays?: number
+}
+
+export interface CertTemplate {
+  // Subject DN fields (e.g. { CN: 'agent-1', OU: 'agent' })
+  subject: Record<string, string>
+
+  // Subject Alternative Names
+  san?: SubjectAltNames
+
+  // Extended Key Usage OIDs
+  eku?: string[]
+
+  // Validity override in days (overrides CAConfig)
+  validityDays?: number
+}
+
+export interface SubjectAltNames {
+  dns?: string[]
+  ip?: string[]
+  uri?: string[]
+  email?: string[]
+}
+
+// Issued certificate with full audit trail
+export interface CertIssueResult {
+  cert: string
+  fingerprint: string
+  serialNumber: string
+  notBefore: string
+  notAfter: string
+}
+
+// KV record tracking an issued certificate
+export interface CertRecord {
+  fingerprint: string
+  serialNumber: string
+  subject: Record<string, string>
+  issuedAt: string
+  notAfter: string
+  revokedAt?: string
+  revokeReason?: string
+}
+
+export interface CertRevokeRequest {
+  fingerprint: string
+  reason: string
+}

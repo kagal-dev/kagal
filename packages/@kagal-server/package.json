@@ -53,6 +53,7 @@
     "type-check:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "dependencies": {
+    "@kagal/proto": "workspace:^",
     "@kagal/worker": "workspace:^"
   },
   "devDependencies": {

@@ -9,7 +9,6 @@ export {
 
 export {
   KAGAL_PATHS,
-  KAGAL_ROLES,
   SUPERVISOR_NAME,
   TASK_STATUSES,
 } from './consts';
@@ -28,7 +27,6 @@ export {
 } from './supervisor';
 
 export type {
-  AgentIdentity,
   AgentMeta,
   DeepPartial,
   HealthCheck,
@@ -36,7 +34,6 @@ export type {
   KagalEnv,
   KagalHooks,
   KagalPaths,
-  KagalRole,
   KagalSupervisorPaths,
   KagalWorkerConfig,
   Task,

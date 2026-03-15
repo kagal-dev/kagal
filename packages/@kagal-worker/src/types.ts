@@ -1,12 +1,11 @@
 import type { KagalAgentEnv } from './agent';
-import type { KAGAL_ROLES, TASK_STATUSES } from './consts';
+import type { TASK_STATUSES } from './consts';
 import type { KagalGatewayConfig } from './gateway';
 import type { KagalSupervisorEnv } from './supervisor';
 
 export type { KagalAgentEnv } from './agent';
 export {
   KAGAL_PATHS,
-  KAGAL_ROLES,
   TASK_STATUSES,
 } from './consts';
 export type { KagalGatewayConfig } from './gateway';
@@ -23,21 +22,14 @@ export interface HealthCheck {
   dependencies?: Record<string, HealthCheck>
 }
 
-export type KagalRole = typeof KAGAL_ROLES[number];
 export type TaskStatus = typeof TASK_STATUSES[number];
-
-export interface AgentIdentity {
-  agentId: string
-  role: KagalRole
-  registeredAt: string
-}
 
 export interface AgentMeta {
   [key: string]: unknown
 }
 
 export interface Task {
-  taskId: string
+  taskID: string
   action: string
   params: Record<string, unknown>
   status: TaskStatus

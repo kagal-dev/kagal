@@ -55,6 +55,7 @@
     "type-check:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "dependencies": {
+    "@kagal/proto": "workspace:^",
     "defu": "^6.1.4",
     "path-to-regexp": "^6.3.0"
   },

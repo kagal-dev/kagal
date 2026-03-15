@@ -30,5 +30,4 @@ export const KAGAL_PATHS: KagalPaths = {
 
 export const SUPERVISOR_NAME = 'supervisor';
 
-export const KAGAL_ROLES = ['agent', 'operator'] as const;
 export const TASK_STATUSES = ['queued', 'dispatched', 'ok', 'error'] as const;
