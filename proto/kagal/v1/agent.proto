@@ -11,6 +11,7 @@ message Hello {
   string nonce = 1;
   uint32 boot_count = 2;
   string hw_serial = 3;
+  repeated string capabilities = 4;
 }
 
 // StatusReport is a periodic status update from agent to server.

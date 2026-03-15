@@ -11,7 +11,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file kagal/v1/agent.proto.
  */
 export const file_kagal_v1_agent: GenFile = /*@__PURE__*/
-  fileDesc("ChRrYWdhbC92MS9hZ2VudC5wcm90bxIIa2FnYWwudjEiPQoFSGVsbG8SDQoFbm9uY2UYASABKAkSEgoKYm9vdF9jb3VudBgCIAEoDRIRCglod19zZXJpYWwYAyABKAkiRgoMU3RhdHVzUmVwb3J0Eg8KB3ZlcnNpb24YASABKAkSJQoEbWV0YRgCIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QiMAoKUXVhcmFudGluZRIOCgZyZWFzb24YASABKAkSEgoKY2xhaW1fY29kZRgCIAEoCUIkWiJrYWdhbC5kZXYvcGtnL3Byb3RvL2thZ2FsL3YxO2thZ2FsYgZwcm90bzM", [file_google_protobuf_struct]);
+  fileDesc("ChRrYWdhbC92MS9hZ2VudC5wcm90bxIIa2FnYWwudjEiUwoFSGVsbG8SDQoFbm9uY2UYASABKAkSEgoKYm9vdF9jb3VudBgCIAEoDRIRCglod19zZXJpYWwYAyABKAkSFAoMY2FwYWJpbGl0aWVzGAQgAygJIkYKDFN0YXR1c1JlcG9ydBIPCgd2ZXJzaW9uGAEgASgJEiUKBG1ldGEYAiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0IjAKClF1YXJhbnRpbmUSDgoGcmVhc29uGAEgASgJEhIKCmNsYWltX2NvZGUYAiABKAlCJFoia2FnYWwuZGV2L3BrZy9wcm90by9rYWdhbC92MTtrYWdhbGIGcHJvdG8z", [file_google_protobuf_struct]);
 
 /**
  * Hello is the initial handshake from agent to server.
@@ -33,6 +33,11 @@ export type Hello = Message<"kagal.v1.Hello"> & {
    * @generated from field: string hw_serial = 3;
    */
   hwSerial: string;
+
+  /**
+   * @generated from field: repeated string capabilities = 4;
+   */
+  capabilities: string[];
 };
 
 /**

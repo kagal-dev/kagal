@@ -28,6 +28,7 @@ type Hello struct {
 	Nonce         string                 `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	BootCount     uint32                 `protobuf:"varint,2,opt,name=boot_count,json=bootCount,proto3" json:"boot_count,omitempty"`
 	HwSerial      string                 `protobuf:"bytes,3,opt,name=hw_serial,json=hwSerial,proto3" json:"hw_serial,omitempty"`
+	Capabilities  []string               `protobuf:"bytes,4,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -81,6 +82,13 @@ func (x *Hello) GetHwSerial() string {
 		return x.HwSerial
 	}
 	return ""
+}
+
+func (x *Hello) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
 }
 
 // StatusReport is a periodic status update from agent to server.
@@ -193,12 +201,13 @@ var File_kagal_v1_agent_proto protoreflect.FileDescriptor
 
 const file_kagal_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14kagal/v1/agent.proto\x12\bkagal.v1\x1a\x1cgoogle/protobuf/struct.proto\"Y\n" +
+	"\x14kagal/v1/agent.proto\x12\bkagal.v1\x1a\x1cgoogle/protobuf/struct.proto\"}\n" +
 	"\x05Hello\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\x12\x1d\n" +
 	"\n" +
 	"boot_count\x18\x02 \x01(\rR\tbootCount\x12\x1b\n" +
-	"\thw_serial\x18\x03 \x01(\tR\bhwSerial\"U\n" +
+	"\thw_serial\x18\x03 \x01(\tR\bhwSerial\x12\"\n" +
+	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\"U\n" +
 	"\fStatusReport\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12+\n" +
 	"\x04meta\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x04meta\"C\n" +
