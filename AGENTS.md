@@ -68,7 +68,7 @@ pnpm generate     # Regenerate proto (TS + Go)
 pnpm lint         # Lint all (root + proto + packages)
 pnpm lint:proto   # Format and lint proto files
 pnpm test         # Test all npm packages
-pnpm precommit    # lint, type-check, build, test
+pnpm precommit    # build, lint, type-check, test
 pnpm dev:demo-vanilla  # wrangler dev (vanilla + DO worker)
 pnpm dev:demo-hono     # wrangler dev (Hono + DO worker)
 pnpm dev:demo-itty     # wrangler dev (itty-router + DO worker)

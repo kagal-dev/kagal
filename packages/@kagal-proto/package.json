@@ -38,13 +38,15 @@
     "dev:prepare": "unbuild --stub",
     "lint": "eslint --fix .",
     "lint:check": "eslint .",
-    "precommit": "run-s lint type-check build test",
-    "prepack": "run-s lint:check type-check build test publint",
+    "precommit": "run-s build lint type-check test",
+    "prepack": "run-s build lint:check type-check test publint",
     "prepare": "cross-test -s dist/index.mjs || unbuild --stub",
     "publint": "publint",
     "publish:maybe": "npm view ${npm_package_name}@${npm_package_version} version 2>/dev/null && echo \"${npm_package_name}@${npm_package_version} already published\" || pnpm publish",
     "test": "vitest run",
-    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json"
+    "type-check": "run-s type-check:main type-check:tools",
+    "type-check:main": "tsc --noEmit",
+    "type-check:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0"
