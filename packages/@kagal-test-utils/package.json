@@ -20,6 +20,7 @@
     "testing"
   ],
   "exports": {
+    ".": "./src/index.ts",
     "./cloudflare-workers": "./src/cloudflare-workers.ts"
   },
   "scripts": {

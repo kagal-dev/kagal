@@ -1,0 +1,28 @@
+// Minimal wrangler config for vitest-pool-workers.
+// Not used for deployment — see apps/demo-worker/.
+{
+  "name": "kagal-worker-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-12",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "enable_nodejs_process_v2",
+    "enable_nodejs_tty_module",
+    "enable_nodejs_fs_module",
+    "enable_nodejs_http_modules",
+    "enable_nodejs_perf_hooks_module",
+    "enable_nodejs_v8_module"
+  ],
+  "kv_namespaces": [
+    { "binding": "KAGAL_REGISTRY", "id": "registry-test-kv" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "KAGAL_AGENT", "class_name": "KagalAgent" },
+      { "name": "KAGAL_SUPERVISOR", "class_name": "KagalSupervisor" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["KagalAgent", "KagalSupervisor"] }
+  ]
+}

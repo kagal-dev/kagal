@@ -28,8 +28,8 @@ tag = "v1"
 new_sqlite_classes = ["KagalAgent", "KagalSupervisor"]
 
 [[kv_namespaces]]
-binding = "AGENT_INDEX"
-id = "<wrangler kv namespace create AGENT_INDEX>"
+binding = "KAGAL_REGISTRY"
+id = "<wrangler kv namespace create KAGAL_REGISTRY>"
 ```
 
 ### Frontend Worker

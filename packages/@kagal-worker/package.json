@@ -49,11 +49,13 @@
     "publint": "publint",
     "publish:maybe": "npm view ${npm_package_name}@${npm_package_version} version 2>/dev/null && echo \"${npm_package_name}@${npm_package_version} already published\" || pnpm publish",
     "test": "vitest run",
-    "type-check": "run-s type-check:main type-check:tools",
+    "type-check": "run-s type-check:main type-check:tools type-check:tests",
     "type-check:main": "tsc --noEmit",
+    "type-check:tests": "tsc --noEmit -p tsconfig.tests.json",
     "type-check:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.13.1",
     "@cloudflare/workers-types": "^4.20260317.1",
     "@kagal/cross-test": "^0.1.2",
     "@kagal/test-utils": "workspace:^",

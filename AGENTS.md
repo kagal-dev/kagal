@@ -190,6 +190,17 @@ When referencing other npm packages in the monorepo:
 
 - npm packages use Vitest for testing
 - Test files: `*.test.ts` / `*.spec.ts`
+- Packages with Durable Objects use
+  `@cloudflare/vitest-pool-workers` to run tests inside
+  workerd. Each such package has a `wrangler.jsonc` for
+  test bindings and a `tsconfig.tests.json` for test
+  type-checking.
+- `@kagal/worker` exports DO accessors `getAgent(env, name)`
+  and `getSupervisor(env, name)` for obtaining named DO
+  stubs, and a recursive `HealthCheck` interface for
+  health aggregation.
+- `@kagal/test-utils` provides generic test helpers
+  (e.g. `expectStatus`) — no Cloudflare-specific deps.
 
 ## Build Systems
 
@@ -207,12 +218,16 @@ When referencing other npm packages in the monorepo:
 
 ## TypeScript Configuration
 
-Each package has two tsconfig files:
+Each package has at least two tsconfig files:
 
 - `tsconfig.json` — source code only (no Node types)
 - `tsconfig.tools.json` — extends tsconfig.json, adds
   Node types for build/test tooling (build.config.ts,
   vitest.config.ts)
+- `tsconfig.tests.json` — (packages with workerd tests)
+  extends tsconfig.json, adds
+  `@cloudflare/vitest-pool-workers/types` for test
+  files under `src/__tests__/`
 
 ## Publishing
 

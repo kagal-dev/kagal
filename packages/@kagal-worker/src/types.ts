@@ -1,16 +1,26 @@
-export interface KagalEnv {
-  // Required: Durable Object namespace for KagalAgent
-  KAGAL_AGENT: DurableObjectNamespace
+import type { KagalAgentEnv } from './agent';
+import type { KAGAL_ROLES, TASK_STATUSES } from './consts';
+import type { KagalSupervisorEnv } from './supervisor';
 
-  // Required: Durable Object namespace for Supervisor
-  KAGAL_SUPERVISOR: DurableObjectNamespace
+export type { KagalAgentEnv } from './agent';
+export {
+  HEALTH_PATH,
+  KAGAL_ROLES,
+  TASK_STATUSES,
+} from './consts';
+export type { KagalRegistryEnv } from './registry';
 
-  // Required: KV namespace for agent registry
-  AGENT_INDEX: KVNamespace
+export type { KagalSupervisorEnv } from './supervisor';
+
+/** Full DO Worker environment. */
+export type KagalEnv = KagalAgentEnv & KagalSupervisorEnv;
+
+/** Recursive health check result. */
+export interface HealthCheck {
+  ok: boolean
+  name: string
+  dependencies?: Record<string, HealthCheck>
 }
-
-export const KAGAL_ROLES = ['agent', 'operator'] as const;
-export const TASK_STATUSES = ['queued', 'dispatched', 'ok', 'error'] as const;
 
 export type KagalRole = typeof KAGAL_ROLES[number];
 export type TaskStatus = typeof TASK_STATUSES[number];
