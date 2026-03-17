@@ -12,6 +12,7 @@
     "dev:demo-hono": "wrangler dev -c apps/demo-hono/wrangler.toml -c apps/demo-worker/wrangler.toml",
     "dev:demo-itty": "wrangler dev -c apps/demo-itty/wrangler.toml -c apps/demo-worker/wrangler.toml",
     "dev:demo-vanilla": "wrangler dev -c apps/demo-vanilla/wrangler.toml -c apps/demo-worker/wrangler.toml",
+    "dev:demo-worker": "wrangler dev -c apps/demo-worker/wrangler.toml",
     "generate": "buf generate",
     "lint": "run-s lint:root lint:proto && pnpm -r lint",
     "lint:check": "run-s lint:root:check lint:proto:check && pnpm -r lint:check",

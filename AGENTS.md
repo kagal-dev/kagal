@@ -72,6 +72,7 @@ pnpm precommit    # build, lint, type-check, test
 pnpm dev:demo-vanilla  # wrangler dev (vanilla + DO worker)
 pnpm dev:demo-hono     # wrangler dev (Hono + DO worker)
 pnpm dev:demo-itty     # wrangler dev (itty-router + DO worker)
+pnpm dev:demo-worker   # wrangler dev (DO worker only)
 ```
 
 ## Code Style Guidelines
