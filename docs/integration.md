@@ -12,7 +12,7 @@ and configure the backing DO Worker.
 ```toml
 name = "my-fleet-do"
 main = "src/index.ts"
-compatibility_date = "2026-03-13"
+compatibility_date = "2026-03-12"
 compatibility_flags = ["nodejs_compat"]
 
 [[durable_objects.bindings]]
@@ -37,7 +37,7 @@ id = "<wrangler kv namespace create AGENT_INDEX>"
 ```toml
 name = "my-fleet-app"
 main = "src/index.ts"
-compatibility_date = "2026-03-13"
+compatibility_date = "2026-03-12"
 compatibility_flags = ["nodejs_compat"]
 
 # Service binding to the DO worker
