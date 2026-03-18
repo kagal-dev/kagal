@@ -676,56 +676,73 @@ operations go through the Supervisor DO.
 
 ## TBD — Open Questions
 
-1. **WebSocket Upgrade Mechanics**: Document the
-   canonical pattern for upgrading HTTP → WebSocket
-   and handing to the DO. Expected pattern:
-   Worker receives upgrade → derives DO stub via
-   `env.KAGAL_AGENT.get(idFromName(agentId))` →
-   forwards via `stub.fetch(request)` → inside DO's
-   `fetch()`: `new WebSocketPair()`,
-   `this.ctx.acceptWebSocket(pair[1], [tag])`,
-   return `Response(null, {status:101, webSocket:pair[0]})`.
+<!-- Issue numbers are stable — never renumber.
+     Resolved issues keep their number and move to
+     a Resolved section. New issues get the next
+     available number. -->
 
-2. **`kagalAuth` Middleware Contract**: Returns
-   `KagalAuthResult | undefined` with shape
-   `{ agentID, role, fingerprint, certExpired }`.
-   Define behaviour for `/register` (allow unregistered
-   fingerprints), revoked certs (check
-   `revoked:<fingerprint>` in KV), and
-   `certPresented === '0'` (reject).
+### 1. WebSocket Upgrade Mechanics
 
-3. **Agent Onboarding Flow**: Define bootstrap JWT
-   format, OAuth2 device flow integration, and
-   `POST /register` contract (request body, response
-   shape, what gets written to KV).
+Document the canonical pattern for upgrading
+HTTP → WebSocket and handing to the DO. Expected
+pattern: Worker receives upgrade → derives DO stub
+via `env.KAGAL_AGENT.get(idFromName(agentId))` →
+forwards via `stub.fetch(request)` → inside DO's
+`fetch()`: `new WebSocketPair()`,
+`this.ctx.acceptWebSocket(pair[1], [tag])`,
+return `Response(null, {status:101, webSocket:pair[0]})`.
 
-4. **First-Connect Nonce Initialisation**: Define
-   whether nonce state is created on registration or
-   first WebSocket connect, and whether the DO sends
-   `{ type: 'nonce' }` as the first message.
+### 2. `kagalAuth` Middleware Contract
 
-5. **Certificate Lifecycle**: Define cert issuance
-   callback interface, `cert_renew` task (who
-   initiates, how cert reaches agent, how KV mapping
-   updates), and `@kagal/ca` reference implementation.
+Returns `KagalAuthResult | undefined` with shape
+`{ agentID, role, fingerprint, certExpired }`.
+Define behaviour for `/register` (allow unregistered
+fingerprints), revoked certs (check
+`revoked:<fingerprint>` in KV), and
+`certPresented === '0'` (reject).
 
-6. **DO Worker Routing**: Define how `createKagalHandler`
-   routes requests: WebSocket upgrades to Agent DOs,
-   fleet operations to Supervisor DO.
+### 3. Agent Onboarding Flow
 
-7. **Deployment Topologies**: Document single-Worker
-   (all-in-one) vs. multi-Worker (service binding)
-   patterns and their trade-offs for upgrade isolation.
+Define bootstrap JWT format, OAuth2 device flow
+integration, and `POST /register` contract (request
+body, response shape, what gets written to KV).
 
-8. **Error Message Type**: Consider adding an `error`
-   type to `ServerMessage`:
-   `{ type: 'error'; code: string; message: string }`.
-   Codes: `unknown_agent`, `rate_limited`,
-   `protocol_error`, `version_mismatch`.
+### 4. First-Connect Nonce Initialisation
 
-9. **Supervisor DO Scope**: Define what fleet-wide
-   coordination the Supervisor DO handles vs. what
-   remains in the consumer's domain.
+Define whether nonce state is created on registration
+or first WebSocket connect, and whether the DO sends
+`{ type: 'nonce' }` as the first message.
+
+### 5. Certificate Lifecycle
+
+Define cert issuance callback interface, `cert_renew`
+task (who initiates, how cert reaches agent, how KV
+mapping updates), and `@kagal/ca` reference
+implementation.
+
+### 6. DO Worker Routing
+
+Define how `createKagalHandler` routes requests:
+WebSocket upgrades to Agent DOs, fleet operations
+to Supervisor DO.
+
+### 7. Deployment Topologies
+
+Document single-Worker (all-in-one) vs. multi-Worker
+(service binding) patterns and their trade-offs for
+upgrade isolation.
+
+### 8. Error Message Type
+
+Consider adding an `error` type to `ServerMessage`:
+`{ type: 'error'; code: string; message: string }`.
+Codes: `unknown_agent`, `rate_limited`,
+`protocol_error`, `version_mismatch`.
+
+### 9. Supervisor DO Scope
+
+Define what fleet-wide coordination the Supervisor DO
+handles vs. what remains in the consumer's domain.
 
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts
