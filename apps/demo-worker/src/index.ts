@@ -1,7 +1,5 @@
-export default {
-  async fetch(): Promise<Response> {
-    return new Response('kagal-do worker', { status: 200 });
-  },
-};
+import { KagalGateway } from '@kagal/worker';
+
+export default new KagalGateway();
 
 export { KagalAgent, KagalSupervisor } from '@kagal/worker';

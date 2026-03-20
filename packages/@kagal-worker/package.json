@@ -54,6 +54,10 @@
     "type-check:tests": "tsc --noEmit -p tsconfig.tests.json",
     "type-check:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
+  "dependencies": {
+    "defu": "^6.1.4",
+    "path-to-regexp": "^6.3.0"
+  },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.13.1",
     "@cloudflare/workers-types": "^4.20260317.1",

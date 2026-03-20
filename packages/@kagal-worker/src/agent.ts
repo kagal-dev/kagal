@@ -1,7 +1,15 @@
 import { DurableObject } from 'cloudflare:workers';
 
+import { KAGAL_AGENT_PATHS } from './consts';
+import {
+  isWebSocketUpgrade,
+  notFound,
+  notImplemented,
+  upgradeRequired,
+} from './utils';
+
 import type { KagalRegistryEnv } from './registry';
-import { HEALTH_PATH } from './consts';
+import type { HealthCheck, KagalAgentPaths } from './types';
 
 /** Agent DO binding. */
 export interface KagalAgentEnv extends KagalRegistryEnv {
@@ -9,23 +17,32 @@ export interface KagalAgentEnv extends KagalRegistryEnv {
 }
 
 export class KagalAgent extends DurableObject<KagalAgentEnv> {
+  /** Fetch handler. Only accepts WebSocket upgrades
+   *  on the internal `ws` path. */
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === HEALTH_PATH) {
-      return this.health();
+    const { pathname } = new URL(request.url);
+    if (pathname !== `/${KAGAL_AGENT_PATHS.ws}`) {
+      return notFound();
     }
-    return this.notFound();
+    if (!isWebSocketUpgrade(request)) {
+      return upgradeRequired();
+    }
+
+    // TODO: WebSocket hibernation
+    return notImplemented();
   }
 
-  private health(): Response {
-    return Response.json({ ok: true, name: 'KagalAgent' });
+  /** RPC: internal path directory. */
+  paths(): KagalAgentPaths {
+    return KAGAL_AGENT_PATHS;
   }
 
-  private notFound(): Response {
-    return new Response('not found', { status: 404 });
+  /** RPC: agent health check. */
+  health(): HealthCheck {
+    return { ok: true, name: 'KagalAgent' };
   }
 
-  // TODO: WebSocket hibernation, nonce chain, task queue
+  // TODO: nonce chain, task queue
 }
 
 /** Get a named Agent DO stub. */

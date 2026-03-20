@@ -134,12 +134,25 @@ Type definitions and interfaces are in
 
 The consumer's DO Worker env extends `KagalEnv` with
 their own bindings. The consumer's frontend Worker
-extends `KagalServerEnv` (a `Fetcher` service binding
-to the DO Worker).
+extends `KagalServerEnv`, which extends
+`KagalRegistryEnv` (direct `KAGAL_REGISTRY` KV access
+for cert validation and agent listing) and adds
+`KAGAL_WORKER: Fetcher` (service binding to the DO
+Worker).
 
-`KagalWorkerConfig` is passed to
-`createKagalHandler()`. It configures lifecycle hooks
-and protocol parameters for the DO Worker.
+`new KagalGateway(config?)` returns a `KagalGateway`
+instance suitable as a Worker `default export`. It
+dispatches incoming requests to Durable Objects:
+`/agent/:id/…` routes to the named `KagalAgent` DO,
+`/supervisor/…` routes to the `KagalSupervisor`
+singleton (addressed by `SUPERVISOR_NAME =
+'supervisor'`). Unmatched paths return 404, wrong
+methods return 405.
+
+`KagalGatewayConfig` is passed to `new KagalGateway()`.
+It configures paths for routing. Lifecycle hooks and
+protocol parameters live in `KagalWorkerConfig`, which
+extends `KagalGatewayConfig`.
 
 ---
 
@@ -154,24 +167,28 @@ Type definitions and interfaces are in
 `createKagalRouter(config)` returns a `KagalRouter`
 the consumer mounts into their Worker. Provides both
 a route list for framework adapters and a direct
-`handle()` for raw fetch handlers. Forwards requests
-to the DO Worker via the service binding.
+`handle()` for raw fetch handlers. The server
+shares the gateway's default paths, prepended with
+a configurable host/prefix. Routes are forwarded to
+the DO Worker via `KAGAL_WORKER`.
 
 Lifecycle hooks and DO-level configuration live in
 `KagalWorkerConfig` (see `@kagal/worker` above).
 
 ### Core Routes
 
+Default paths (shown without host/prefix):
+
 ```text
-POST   /register             — agent self-registration
-GET    /agents               — list all agents (operator)
-GET    /agents/:id           — get agent details (operator)
-POST   /agents/:id/tasks     — enqueue a task (operator)
-GET    /agents/:id/tasks     — list tasks (operator)
-GET    /agents/:id/tasks/:task_id — get task status
-POST   /agents/:id/claim     — claim a quarantined agent
-WS     /ws/:id               — agent control WebSocket
-WS     /agents/:id/tunnel    — tunnel data WebSocket
+GET    /agent/:id/health     — agent health check
+WS     /agent/:id/ws         — agent control WebSocket
+GET    /agent/:id/tasks      — list tasks (operator)
+POST   /agent/:id/tasks      — enqueue a task (operator)
+POST   /agent/:id/claim      — claim a quarantined agent
+WS     /agent/:id/tunnel     — tunnel data WebSocket
+GET    /supervisor/health    — supervisor health check
+GET    /supervisor/agents    — list all agents (operator)
+POST   /supervisor/register  — agent self-registration
 GET    /pki/ca.crt           — download root CA cert
 ```
 
@@ -193,7 +210,7 @@ templates.
   fetch. Uses `kagal.handle()` as a catch-all.
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
-  `createKagalHandler()` as the fetch handler.
+  `new KagalGateway()` as the default export.
 
 ---
 
@@ -245,7 +262,7 @@ Generated Go protobuf types are at
 Each agent maintains a single persistent WebSocket to
 its Agent DO.
 
-- **URL**: `wss://<host>/<prefix>/ws/<agent_id>`
+- **URL**: `wss://<host>/agent/<agent_id>/ws`
 - **Keep-alive**: `setWebSocketAutoResponse` handles
   ping/pong without waking the DO (zero cost).
 - **Reconnection**: Exponential backoff with jitter:
@@ -423,7 +440,7 @@ New agents start without a certificate:
 2. Cloudflare populates `request.cf.tlsClientAuth`
 3. Auth middleware reads `certFingerprintSHA256`
 4. Looks up `cert:<fingerprint>` in KV →
-   `{ agent_id, role }`
+   `{ agentId, role }`
 
 See [`docs/integration.md`][integration] for mTLS
 setup instructions.
@@ -468,10 +485,10 @@ See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 Singleton DO for fleet-level operations. Agent DOs
 notify the Supervisor of lifecycle events (connect,
 disconnect, status changes); the Supervisor
-accumulates these into fleet state. The DO Worker's
-fetch handler routes agent WebSocket upgrades directly
-to Agent DOs (preserving hibernation); fleet and
-operator requests go through the Supervisor.
+accumulates these into fleet state. `KagalGateway`
+routes agent WebSocket upgrades directly to Agent DOs
+(preserving hibernation); fleet and operator requests
+go through the Supervisor.
 
 ### Responsibilities
 
@@ -486,9 +503,13 @@ operator requests go through the Supervisor.
   queries, and coordination that individual Agent DOs
   cannot handle in isolation.
 
+The Supervisor is addressed by the constant
+`SUPERVISOR_NAME = 'supervisor'`. All deployments use
+a single Supervisor DO instance per namespace.
+
 The Supervisor is **not** in the agent WebSocket path.
-Agent WebSocket connections are routed by the DO
-Worker's fetch handler directly to Agent DOs, keeping
+Agent WebSocket connections are routed by
+`new KagalGateway()` directly to Agent DOs, keeping
 the hibernation cost model intact.
 
 ---
@@ -497,9 +518,9 @@ the hibernation cost model intact.
 
 | Key Pattern | Value |
 |-------------|-------|
-| `cert:<sha256>` | `{"agent_id":"...","role":"agent","registered_at":"..."}` |
-| `revoked:<sha256>` | `{"revoked_at":"...","reason":"..."}` |
-| `agent:<agent_id>` | `{"online":true,"last_seen":"...","version":"...","quarantined":false,"pending_tasks":0}` |
+| `cert:<sha256>` | `{"agentId":"...","role":"agent","registeredAt":"..."}` |
+| `revoked:<sha256>` | `{"revokedAt":"...","reason":"..."}` |
+| `agent:<agentId>` | `{"online":true,"lastSeen":"...","version":"...","quarantined":false,"pendingTasks":0}` |
 
 ---
 
@@ -513,14 +534,14 @@ either side closes.
 
 ### Port Forwarding Flow
 
-1. Operator calls `POST /agents/:id/tasks` with
+1. Operator calls `POST /agent/:id/tasks` with
    `{"action": "tunnel_open", "params": {"port": N}}`
 2. DO dispatches to agent via control WebSocket
 3. Agent opens a data WebSocket to
-   `/agents/:id/tunnel?role=agent`
+   `/agent/:id/tunnel?role=agent`
 4. Agent dials `localhost:N`, splices TCP ↔ WebSocket
 5. Client connects via
-   `/agents/:id/tunnel?role=client`
+   `/agent/:id/tunnel?role=client`
 6. DO splices the two WebSockets bidirectionally
 7. Tunnel closes when either side disconnects
 
@@ -722,9 +743,8 @@ implementation.
 
 ### 6. DO Worker Routing
 
-Define how `createKagalHandler` routes requests:
-WebSocket upgrades to Agent DOs, fleet operations
-to Supervisor DO.
+Resolved: `KagalGateway` dispatches requests to DOs.
+See [Core Routes](#core-routes).
 
 ### 7. Deployment Topologies
 
