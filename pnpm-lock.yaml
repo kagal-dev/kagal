@@ -198,15 +198,15 @@ importers:
         specifier: workspace:^
         version: link:../@kagal-worker
     devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.13.1
+        version: 0.13.1(@cloudflare/workers-types@4.20260317.1)(@vitest/runner@4.1.0)(@vitest/snapshot@4.1.0)(vitest@4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)))
       '@cloudflare/workers-types':
         specifier: ^4.20260317.1
         version: 4.20260317.1
       '@kagal/cross-test':
         specifier: ^0.1.2
         version: 0.1.2
-      '@kagal/test-utils':
-        specifier: workspace:^
-        version: link:../@kagal-test-utils
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))

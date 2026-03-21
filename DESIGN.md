@@ -27,11 +27,11 @@ Kagal ships as four npm packages:
   nonce chain, tunnel splice) and Supervisor DO (fleet
   queries, agent registry).
 - **`@kagal/server`** — Server library for frontends.
-  Exports `createKagalRouter()` (route list + catch-all
-  handler) and `kagalAuth()` for consumer routes that
-  need the same mTLS identity resolution. The consumer
-  mounts Kagal into their own Worker (Hono, itty-router,
-  Nitro, raw fetch handler — whatever they prefer).
+  Exports `KagalServer` (gateway path discovery,
+  cascading health checks) and `kagalAuth()` for
+  mTLS identity resolution. The consumer owns their
+  own HTTP router and forwards DO-bound requests to
+  the gateway via `KAGAL_WORKER`.
 - **`@kagal/agent`** — TypeScript agent CLI and library
   built with citty. Manages the control WebSocket,
   nonce rotation, task execution, and reconnection.
@@ -79,8 +79,8 @@ that scales to unlimited agents at ~$5/month.
 │  │ (@kagal/server)    │  │ (@kagal/worker)         │ │
 │  │                    │  │                         │ │
 │  │ + mTLS auth        │  │ ┌─────────────────────┐ │ │
-│  │ + fleet routes    ───▶│ │ Supervisor DO       │ │ │
-│  │ + WSS forward      │  │ │ - Fleet queries     │ │ │
+│  │ + gateway fwd     ───▶│ │ Supervisor DO       │ │ │
+│  │ + health checks    │  │ │ - Fleet queries     │ │ │
 │  │ + consumer routes  │  │ │ - Agent registry    │ │ │
 │  └────────────────────┘  │ └─────────────────────┘ │ │
 │                          │ ┌─────────────────────┐ │ │
@@ -154,30 +154,13 @@ It configures paths for routing. Lifecycle hooks and
 protocol parameters live in `KagalWorkerConfig`, which
 extends `KagalGatewayConfig`.
 
----
+`GET /` returns the path directory (`KagalPaths`) as
+JSON — consumers use this for discovery rather than
+hardcoding paths.
 
-## Package: `@kagal/server` (npm)
+### Gateway Routes
 
-The server library for building fleet management
-frontends. Runs in the consumer's frontend Worker.
-
-Type definitions and interfaces are in
-[`packages/@kagal-server/src/types.ts`][server-types].
-
-`createKagalRouter(config)` returns a `KagalRouter`
-the consumer mounts into their Worker. Provides both
-a route list for framework adapters and a direct
-`handle()` for raw fetch handlers. The server
-shares the gateway's default paths, prepended with
-a configurable host/prefix. Routes are forwarded to
-the DO Worker via `KAGAL_WORKER`.
-
-Lifecycle hooks and DO-level configuration live in
-`KagalWorkerConfig` (see `@kagal/worker` above).
-
-### Core Routes
-
-Default paths (shown without host/prefix):
+Default paths (configurable via `KagalGatewayConfig`):
 
 ```text
 GET    /agent/:id/health     — agent health check
@@ -189,25 +172,59 @@ WS     /agent/:id/tunnel     — tunnel data WebSocket
 GET    /supervisor/health    — supervisor health check
 GET    /supervisor/agents    — list all agents (operator)
 POST   /supervisor/register  — agent self-registration
-GET    /pki/ca.crt           — download root CA cert
 ```
 
-Application-specific routes (firmware, backups, etc.)
-are **not** part of the core router.
+Application-specific routes (firmware, backups,
+PKI, etc.) are **not** part of the gateway.
+
+---
+
+## Package: `@kagal/server` (npm)
+
+The server library for building fleet management
+frontends. Runs in the consumer's frontend Worker.
+
+Type definitions and interfaces are in
+[`packages/@kagal-server/src/types.ts`][server-types].
+
+`KagalServer` is the main export — a class that
+caches the gateway's path directory and provides
+cascading health checks. The consumer instantiates
+it once (module scope) and uses it across requests:
+
+- `discover(env)` — fetches and caches the gateway's
+  `KagalPaths` directory from `GET /` on the
+  `KAGAL_WORKER` service binding. Validates the
+  response and throws on failure.
+- `health(env)` — cascading health check aggregating
+  the server and supervisor (via the gateway).
+  Returns a `HealthCheck` with component-level
+  dependencies keyed by component name.
+
+`kagalAuth()` resolves mTLS identity from
+`request.cf.tlsClientAuth`. Exported for consumer
+routes that need the same identity resolution.
+
+The server does **not** own a route table or HTTP
+router. The consumer handles their own routes
+(health, app-specific endpoints) and forwards
+DO-bound requests to the gateway via
+`env.KAGAL_WORKER.fetch(request)`.
 
 ### Integration Examples
 
 See the demo applications under `apps/` and
 [`docs/integration.md`][integration] for framework
-adapters (Hono, itty-router, Nitro) and `wrangler.toml`
-templates.
+adapters (Hono, itty-router, Nitro) and
+`wrangler.toml` templates.
 
-- **`demo-hono/`** — Hono frontend. Mounts
-  `kagal.routes` into the Hono app.
-- **`demo-itty/`** — itty-router frontend. Maps
-  `kagal.routes` via dynamic method dispatch.
+- **`demo-hono/`** — Hono frontend. Uses
+  `kagal.health()` for `/health`, forwards `/*`
+  to the gateway.
+- **`demo-itty/`** — itty-router frontend. Same
+  pattern with `AutoRouter`.
 - **`demo-vanilla/`** — Minimal frontend using raw
-  fetch. Uses `kagal.handle()` as a catch-all.
+  fetch. Same pattern with `if/else` on pathname.
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
   `new KagalGateway()` as the default export.
@@ -656,7 +673,7 @@ operations go through the Supervisor DO.
 
 1. `@kagal/worker`: Agent DO with SQLite schema
 2. `@kagal/worker`: Supervisor DO
-3. `@kagal/server`: `kagalAuth` + `createKagalRouter`
+3. `@kagal/server`: `kagalAuth` + `KagalServer`
 4. `@kagal/worker`: Control WebSocket with hibernation
 5. `@kagal/worker`: Task queue
 6. `@kagal/agent`: Config, WebSocket loop, reconnection
@@ -744,13 +761,15 @@ implementation.
 ### 6. DO Worker Routing
 
 Resolved: `KagalGateway` dispatches requests to DOs.
-See [Core Routes](#core-routes).
+See [Gateway Routes](#gateway-routes).
 
 ### 7. Deployment Topologies
 
 Document single-Worker (all-in-one) vs. multi-Worker
 (service binding) patterns and their trade-offs for
-upgrade isolation.
+upgrade isolation. The multi-Worker pattern uses
+`KAGAL_WORKER: Fetcher` service bindings; see
+Architecture Notes in AGENTS.md.
 
 ### 8. Error Message Type
 

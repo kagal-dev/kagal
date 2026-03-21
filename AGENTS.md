@@ -59,6 +59,33 @@ kagal/
 A Go module (`kagal.dev`) is planned for after the
 TypeScript packages stabilise.
 
+## Architecture Notes
+
+### Service Binding Model
+
+Frontend apps and `@kagal/server` must NOT own or bind
+Durable Objects directly. DOs live in a dedicated DO
+worker (`demo-worker` / the app's own worker). Frontends
+communicate with DOs via a `KAGAL_WORKER: Fetcher`
+service binding, so DO workers are not restarted on
+frontend redeploys.
+
+`KagalServerEnv extends KagalRegistryEnv` (direct KV
+read access) and adds `KAGAL_WORKER: Fetcher`.
+
+### Import Boundary
+
+`@kagal/worker` depends on `cloudflare:workers`, which
+is only available inside workerd. Do NOT import value
+constants from `@kagal/worker` in server or build/test
+config contexts — it breaks Node.js tooling
+(`vitest.config.ts`, `build.config.ts`). This boundary
+is why `KagalGateway` lives in `@kagal/worker` (same
+runtime as the DOs) and the server forwards requests
+via the `KAGAL_WORKER` service binding instead of
+importing DO code directly. `@kagal/server` re-exports
+or redefines any shared constants it needs.
+
 ## Common Commands
 
 ```bash
@@ -114,7 +141,8 @@ Before committing any changes, ALWAYS run:
 - Use workspace protocol (`workspace:^`) for internal
   npm dependencies
 - Write tests for all new functionality
-- Use `git -C <path>` instead of `cd <path> && git`
+- Never use `cd`; for git on a subpath use
+  `git -C <subpath>`, but not `-C .` at repo root
 - Check existing code patterns before creating new ones
 - Keep packages focused on their specific purpose
 - Follow strict TypeScript practices
@@ -134,6 +162,8 @@ Before committing any changes, ALWAYS run:
 - **NEVER rely on the staging area — always list files
   explicitly**
 - **NEVER DELETE FILES WITHOUT EXPLICIT PERMISSION**
+- **NEVER use `cd`** — it causes subsequent tool calls
+  to lose working directory context
 
 ### Git Workflow
 
@@ -190,11 +220,11 @@ When referencing other npm packages in the monorepo:
 
 - npm packages use Vitest for testing
 - Test files: `*.test.ts` / `*.spec.ts`
-- Packages with Durable Objects use
-  `@cloudflare/vitest-pool-workers` to run tests inside
-  workerd. Each such package has a `wrangler.jsonc` for
-  test bindings and a `tsconfig.tests.json` for test
-  type-checking.
+- Packages that need workerd bindings (`@kagal/worker`,
+  `@kagal/server`) use `@cloudflare/vitest-pool-workers`
+  to run tests inside workerd. Each such package has a
+  `wrangler.jsonc` for test bindings and a
+  `tsconfig.tests.json` for test type-checking.
 - `@kagal/worker` exports DO accessors `getAgent(env, name)`
   and `getSupervisor(env, name)` for obtaining named DO
   stubs, and a recursive `HealthCheck` interface for
@@ -287,5 +317,7 @@ trusted publisher on npmjs.com:
   wrong
 - Fix issues immediately without commentary
 - Stay focused on the task at hand
-- Use `git -C` instead of `cd` for git operations on
-  other paths
+- **NEVER use `cd`** — it loses working directory
+  context for all subsequent tool calls; use
+  `git -C <subpath>` for git in subdirectories,
+  but not `-C .` at repo root
