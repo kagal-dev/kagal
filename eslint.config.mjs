@@ -3,7 +3,7 @@ import { defineConfig } from '@poupe/eslint-config';
 
 export default defineConfig({
   ignores: [
-    '.claude/projects/*/memory',
+    '.claude/**/memory',
     '.tmp',
     '**/.wrangler',
   ],
