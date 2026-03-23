@@ -13,7 +13,7 @@ function registerRoute(
 ): void {
   if (route.method === 'WS') return;
 
-  target.on(route.method, route.path, c =>
+  target.on(route.method, route.path, (c) =>
     route.handler(c.req.raw, c.env, c.executionCtx),
   );
 }
@@ -27,7 +27,7 @@ for (const route of kagal.routes) {
 }
 
 // Consumer routes
-app.get('/api/health', c =>
+app.get('/api/health', (c) =>
   c.json({ status: 'ok', fleet: c.env.FLEET_NAME }),
 );
 
