@@ -12,14 +12,15 @@
     "dev:demo-hono": "wrangler dev -c apps/demo-hono/wrangler.toml -c apps/demo-worker/wrangler.toml",
     "dev:demo-itty": "wrangler dev -c apps/demo-itty/wrangler.toml -c apps/demo-worker/wrangler.toml",
     "dev:demo-vanilla": "wrangler dev -c apps/demo-vanilla/wrangler.toml -c apps/demo-worker/wrangler.toml",
+    "dev:demo-worker": "wrangler dev -c apps/demo-worker/wrangler.toml",
     "generate": "buf generate",
     "lint": "run-s lint:root lint:proto && pnpm -r lint",
     "lint:check": "run-s lint:root:check lint:proto:check && pnpm -r lint:check",
     "lint:proto": "buf format -w proto && buf lint proto",
     "lint:proto:check": "buf format -d --exit-code proto && buf lint proto",
-    "lint:root": "eslint --fix --ignore-pattern 'packages/*' .",
-    "lint:root:check": "eslint --ignore-pattern 'packages/*' .",
-    "precommit": "run-s lint type-check build test",
+    "lint:root": "eslint --fix --ignore-pattern 'packages/*' --ignore-pattern 'apps/*' .",
+    "lint:root:check": "eslint --ignore-pattern 'packages/*' --ignore-pattern 'apps/*' .",
+    "precommit": "run-s build lint type-check test",
     "prepack": "run-s lint:check && pnpm -r prepack",
     "test": "pnpm -r test",
     "type-check": "pnpm -r type-check"
@@ -32,7 +33,7 @@
     "npm-run-all2": "^8.0.4",
     "rimraf": "^6.1.3",
     "vitest": "^4.1.0",
-    "wrangler": "^4.73.0"
+    "wrangler": "^4.74.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

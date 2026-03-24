@@ -20,7 +20,7 @@
     "testing"
   ],
   "exports": {
-    "./cloudflare-workers": "./src/cloudflare-workers.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "clean": "rimraf node_modules",

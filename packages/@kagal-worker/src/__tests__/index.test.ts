@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { version } from '../package.json';
-import { VERSION } from './index';
+import { version } from '../../package.json';
+import { VERSION } from '../index';
 
 describe('@kagal/worker', () => {
   it('exports VERSION from package.json', () => {

@@ -1,4 +1,10 @@
 // @ts-check
-import { defineConfig } from '@poupe/eslint-config';
+import { defineConfig, GLOB_SRC } from '@poupe/eslint-config';
 
-export default defineConfig();
+// TODO: upstream arrow-parens to @poupe/eslint-config
+export default defineConfig({
+  files: [GLOB_SRC],
+  rules: {
+    '@stylistic/arrow-parens': ['error', 'always'],
+  },
+});

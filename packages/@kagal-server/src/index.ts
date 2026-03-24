@@ -2,19 +2,15 @@
 export { version as VERSION } from '../package.json';
 
 export { kagalAuth } from './auth';
-export { createKagalRouter } from './router';
+export { KagalServer } from './server';
 
-export {
-  KAGAL_ROLES,
-  ROUTE_METHODS,
-} from './types';
+export { KAGAL_ROLES } from './types';
 
 export type {
+  HealthCheck,
   KagalAuthResult,
+  KagalPaths,
   KagalRole,
-  KagalRoute,
-  KagalRouter,
   KagalServerConfig,
   KagalServerEnv,
-  RouteMethod,
 } from './types';

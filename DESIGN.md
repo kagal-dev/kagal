@@ -27,11 +27,11 @@ Kagal ships as four npm packages:
   nonce chain, tunnel splice) and Supervisor DO (fleet
   queries, agent registry).
 - **`@kagal/server`** — Server library for frontends.
-  Exports `createKagalRouter()` (route list + catch-all
-  handler) and `kagalAuth()` for consumer routes that
-  need the same mTLS identity resolution. The consumer
-  mounts Kagal into their own Worker (Hono, itty-router,
-  Nitro, raw fetch handler — whatever they prefer).
+  Exports `KagalServer` (gateway path discovery,
+  cascading health checks) and `kagalAuth()` for
+  mTLS identity resolution. The consumer owns their
+  own HTTP router and forwards DO-bound requests to
+  the gateway via `KAGAL_WORKER`.
 - **`@kagal/agent`** — TypeScript agent CLI and library
   built with citty. Manages the control WebSocket,
   nonce rotation, task execution, and reconnection.
@@ -79,8 +79,8 @@ that scales to unlimited agents at ~$5/month.
 │  │ (@kagal/server)    │  │ (@kagal/worker)         │ │
 │  │                    │  │                         │ │
 │  │ + mTLS auth        │  │ ┌─────────────────────┐ │ │
-│  │ + fleet routes    ───▶│ │ Supervisor DO       │ │ │
-│  │ + WSS forward      │  │ │ - Fleet queries     │ │ │
+│  │ + gateway fwd     ───▶│ │ Supervisor DO       │ │ │
+│  │ + health checks    │  │ │ - Fleet queries     │ │ │
 │  │ + consumer routes  │  │ │ - Agent registry    │ │ │
 │  └────────────────────┘  │ └─────────────────────┘ │ │
 │                          │ ┌─────────────────────┐ │ │
@@ -134,12 +134,48 @@ Type definitions and interfaces are in
 
 The consumer's DO Worker env extends `KagalEnv` with
 their own bindings. The consumer's frontend Worker
-extends `KagalServerEnv` (a `Fetcher` service binding
-to the DO Worker).
+extends `KagalServerEnv`, which extends
+`KagalRegistryEnv` (direct `KAGAL_REGISTRY` KV access
+for cert validation and agent listing) and adds
+`KAGAL_WORKER: Fetcher` (service binding to the DO
+Worker).
 
-`KagalWorkerConfig` is passed to
-`createKagalHandler()`. It configures lifecycle hooks
-and protocol parameters for the DO Worker.
+`new KagalGateway(config?)` returns a `KagalGateway`
+instance suitable as a Worker `default export`. It
+dispatches incoming requests to Durable Objects:
+`/agent/:id/…` routes to the named `KagalAgent` DO,
+`/supervisor/…` routes to the `KagalSupervisor`
+singleton (addressed by `SUPERVISOR_NAME =
+'supervisor'`). Unmatched paths return 404, wrong
+methods return 405.
+
+`KagalGatewayConfig` is passed to `new KagalGateway()`.
+It configures paths for routing. Lifecycle hooks and
+protocol parameters live in `KagalWorkerConfig`, which
+extends `KagalGatewayConfig`.
+
+`GET /` returns the path directory (`KagalPaths`) as
+JSON — consumers use this for discovery rather than
+hardcoding paths.
+
+### Gateway Routes
+
+Default paths (configurable via `KagalGatewayConfig`):
+
+```text
+GET    /agent/:id/health     — agent health check
+WS     /agent/:id/ws         — agent control WebSocket
+GET    /agent/:id/tasks      — list tasks (operator)
+POST   /agent/:id/tasks      — enqueue a task (operator)
+POST   /agent/:id/claim      — claim a quarantined agent
+WS     /agent/:id/tunnel     — tunnel data WebSocket
+GET    /supervisor/health    — supervisor health check
+GET    /supervisor/agents    — list all agents (operator)
+POST   /supervisor/register  — agent self-registration
+```
+
+Application-specific routes (firmware, backups,
+PKI, etc.) are **not** part of the gateway.
 
 ---
 
@@ -151,49 +187,47 @@ frontends. Runs in the consumer's frontend Worker.
 Type definitions and interfaces are in
 [`packages/@kagal-server/src/types.ts`][server-types].
 
-`createKagalRouter(config)` returns a `KagalRouter`
-the consumer mounts into their Worker. Provides both
-a route list for framework adapters and a direct
-`handle()` for raw fetch handlers. Forwards requests
-to the DO Worker via the service binding.
+`KagalServer` is the main export — a class that
+caches the gateway's path directory and provides
+cascading health checks. The consumer instantiates
+it once (module scope) and uses it across requests:
 
-Lifecycle hooks and DO-level configuration live in
-`KagalWorkerConfig` (see `@kagal/worker` above).
+- `discover(env)` — fetches and caches the gateway's
+  `KagalPaths` directory from `GET /` on the
+  `KAGAL_WORKER` service binding. Validates the
+  response and throws on failure.
+- `health(env)` — cascading health check aggregating
+  the server and supervisor (via the gateway).
+  Returns a `HealthCheck` with component-level
+  dependencies keyed by component name.
 
-### Core Routes
+`kagalAuth()` resolves mTLS identity from
+`request.cf.tlsClientAuth`. Exported for consumer
+routes that need the same identity resolution.
 
-```text
-POST   /register             — agent self-registration
-GET    /agents               — list all agents (operator)
-GET    /agents/:id           — get agent details (operator)
-POST   /agents/:id/tasks     — enqueue a task (operator)
-GET    /agents/:id/tasks     — list tasks (operator)
-GET    /agents/:id/tasks/:task_id — get task status
-POST   /agents/:id/claim     — claim a quarantined agent
-WS     /ws/:id               — agent control WebSocket
-WS     /agents/:id/tunnel    — tunnel data WebSocket
-GET    /pki/ca.crt           — download root CA cert
-```
-
-Application-specific routes (firmware, backups, etc.)
-are **not** part of the core router.
+The server does **not** own a route table or HTTP
+router. The consumer handles their own routes
+(health, app-specific endpoints) and forwards
+DO-bound requests to the gateway via
+`env.KAGAL_WORKER.fetch(request)`.
 
 ### Integration Examples
 
 See the demo applications under `apps/` and
 [`docs/integration.md`][integration] for framework
-adapters (Hono, itty-router, Nitro) and `wrangler.toml`
-templates.
+adapters (Hono, itty-router, Nitro) and
+`wrangler.toml` templates.
 
-- **`demo-hono/`** — Hono frontend. Mounts
-  `kagal.routes` into the Hono app.
-- **`demo-itty/`** — itty-router frontend. Maps
-  `kagal.routes` via dynamic method dispatch.
+- **`demo-hono/`** — Hono frontend. Uses
+  `kagal.health()` for `/health`, forwards `/*`
+  to the gateway.
+- **`demo-itty/`** — itty-router frontend. Same
+  pattern with `AutoRouter`.
 - **`demo-vanilla/`** — Minimal frontend using raw
-  fetch. Uses `kagal.handle()` as a catch-all.
+  fetch. Same pattern with `if/else` on pathname.
 - **`demo-worker/`** — DO Worker hosting Agent and
   Supervisor DOs. Re-exports the DO classes and uses
-  `createKagalHandler()` as the fetch handler.
+  `new KagalGateway()` as the default export.
 
 ---
 
@@ -245,7 +279,7 @@ Generated Go protobuf types are at
 Each agent maintains a single persistent WebSocket to
 its Agent DO.
 
-- **URL**: `wss://<host>/<prefix>/ws/<agent_id>`
+- **URL**: `wss://<host>/agent/<agent_id>/ws`
 - **Keep-alive**: `setWebSocketAutoResponse` handles
   ping/pong without waking the DO (zero cost).
 - **Reconnection**: Exponential backoff with jitter:
@@ -423,7 +457,7 @@ New agents start without a certificate:
 2. Cloudflare populates `request.cf.tlsClientAuth`
 3. Auth middleware reads `certFingerprintSHA256`
 4. Looks up `cert:<fingerprint>` in KV →
-   `{ agent_id, role }`
+   `{ agentId, role }`
 
 See [`docs/integration.md`][integration] for mTLS
 setup instructions.
@@ -468,10 +502,10 @@ See [`packages/@kagal-worker/sql/schema.sql`][schema-sql].
 Singleton DO for fleet-level operations. Agent DOs
 notify the Supervisor of lifecycle events (connect,
 disconnect, status changes); the Supervisor
-accumulates these into fleet state. The DO Worker's
-fetch handler routes agent WebSocket upgrades directly
-to Agent DOs (preserving hibernation); fleet and
-operator requests go through the Supervisor.
+accumulates these into fleet state. `KagalGateway`
+routes agent WebSocket upgrades directly to Agent DOs
+(preserving hibernation); fleet and operator requests
+go through the Supervisor.
 
 ### Responsibilities
 
@@ -486,9 +520,13 @@ operator requests go through the Supervisor.
   queries, and coordination that individual Agent DOs
   cannot handle in isolation.
 
+The Supervisor is addressed by the constant
+`SUPERVISOR_NAME = 'supervisor'`. All deployments use
+a single Supervisor DO instance per namespace.
+
 The Supervisor is **not** in the agent WebSocket path.
-Agent WebSocket connections are routed by the DO
-Worker's fetch handler directly to Agent DOs, keeping
+Agent WebSocket connections are routed by
+`new KagalGateway()` directly to Agent DOs, keeping
 the hibernation cost model intact.
 
 ---
@@ -497,9 +535,9 @@ the hibernation cost model intact.
 
 | Key Pattern | Value |
 |-------------|-------|
-| `cert:<sha256>` | `{"agent_id":"...","role":"agent","registered_at":"..."}` |
-| `revoked:<sha256>` | `{"revoked_at":"...","reason":"..."}` |
-| `agent:<agent_id>` | `{"online":true,"last_seen":"...","version":"...","quarantined":false,"pending_tasks":0}` |
+| `cert:<sha256>` | `{"agentId":"...","role":"agent","registeredAt":"..."}` |
+| `revoked:<sha256>` | `{"revokedAt":"...","reason":"..."}` |
+| `agent:<agentId>` | `{"online":true,"lastSeen":"...","version":"...","quarantined":false,"pendingTasks":0}` |
 
 ---
 
@@ -513,14 +551,14 @@ either side closes.
 
 ### Port Forwarding Flow
 
-1. Operator calls `POST /agents/:id/tasks` with
+1. Operator calls `POST /agent/:id/tasks` with
    `{"action": "tunnel_open", "params": {"port": N}}`
 2. DO dispatches to agent via control WebSocket
 3. Agent opens a data WebSocket to
-   `/agents/:id/tunnel?role=agent`
+   `/agent/:id/tunnel?role=agent`
 4. Agent dials `localhost:N`, splices TCP ↔ WebSocket
 5. Client connects via
-   `/agents/:id/tunnel?role=client`
+   `/agent/:id/tunnel?role=client`
 6. DO splices the two WebSockets bidirectionally
 7. Tunnel closes when either side disconnects
 
@@ -635,7 +673,7 @@ operations go through the Supervisor DO.
 
 1. `@kagal/worker`: Agent DO with SQLite schema
 2. `@kagal/worker`: Supervisor DO
-3. `@kagal/server`: `kagalAuth` + `createKagalRouter`
+3. `@kagal/server`: `kagalAuth` + `KagalServer`
 4. `@kagal/worker`: Control WebSocket with hibernation
 5. `@kagal/worker`: Task queue
 6. `@kagal/agent`: Config, WebSocket loop, reconnection
@@ -676,56 +714,74 @@ operations go through the Supervisor DO.
 
 ## TBD — Open Questions
 
-1. **WebSocket Upgrade Mechanics**: Document the
-   canonical pattern for upgrading HTTP → WebSocket
-   and handing to the DO. Expected pattern:
-   Worker receives upgrade → derives DO stub via
-   `env.KAGAL_AGENT.get(idFromName(agentId))` →
-   forwards via `stub.fetch(request)` → inside DO's
-   `fetch()`: `new WebSocketPair()`,
-   `this.ctx.acceptWebSocket(pair[1], [tag])`,
-   return `Response(null, {status:101, webSocket:pair[0]})`.
+<!-- Issue numbers are stable — never renumber.
+     Resolved issues keep their number and move to
+     a Resolved section. New issues get the next
+     available number. -->
 
-2. **`kagalAuth` Middleware Contract**: Returns
-   `KagalAuthResult | undefined` with shape
-   `{ agentID, role, fingerprint, certExpired }`.
-   Define behaviour for `/register` (allow unregistered
-   fingerprints), revoked certs (check
-   `revoked:<fingerprint>` in KV), and
-   `certPresented === '0'` (reject).
+### 1. WebSocket Upgrade Mechanics
 
-3. **Agent Onboarding Flow**: Define bootstrap JWT
-   format, OAuth2 device flow integration, and
-   `POST /register` contract (request body, response
-   shape, what gets written to KV).
+Document the canonical pattern for upgrading
+HTTP → WebSocket and handing to the DO. Expected
+pattern: Worker receives upgrade → derives DO stub
+via `env.KAGAL_AGENT.get(idFromName(agentId))` →
+forwards via `stub.fetch(request)` → inside DO's
+`fetch()`: `new WebSocketPair()`,
+`this.ctx.acceptWebSocket(pair[1], [tag])`,
+return `Response(null, {status:101, webSocket:pair[0]})`.
 
-4. **First-Connect Nonce Initialisation**: Define
-   whether nonce state is created on registration or
-   first WebSocket connect, and whether the DO sends
-   `{ type: 'nonce' }` as the first message.
+### 2. `kagalAuth` Middleware Contract
 
-5. **Certificate Lifecycle**: Define cert issuance
-   callback interface, `cert_renew` task (who
-   initiates, how cert reaches agent, how KV mapping
-   updates), and `@kagal/ca` reference implementation.
+Returns `KagalAuthResult | undefined` with shape
+`{ agentID, role, fingerprint, certExpired }`.
+Define behaviour for `/register` (allow unregistered
+fingerprints), revoked certs (check
+`revoked:<fingerprint>` in KV), and
+`certPresented === '0'` (reject).
 
-6. **DO Worker Routing**: Define how `createKagalHandler`
-   routes requests: WebSocket upgrades to Agent DOs,
-   fleet operations to Supervisor DO.
+### 3. Agent Onboarding Flow
 
-7. **Deployment Topologies**: Document single-Worker
-   (all-in-one) vs. multi-Worker (service binding)
-   patterns and their trade-offs for upgrade isolation.
+Define bootstrap JWT format, OAuth2 device flow
+integration, and `POST /register` contract (request
+body, response shape, what gets written to KV).
 
-8. **Error Message Type**: Consider adding an `error`
-   type to `ServerMessage`:
-   `{ type: 'error'; code: string; message: string }`.
-   Codes: `unknown_agent`, `rate_limited`,
-   `protocol_error`, `version_mismatch`.
+### 4. First-Connect Nonce Initialisation
 
-9. **Supervisor DO Scope**: Define what fleet-wide
-   coordination the Supervisor DO handles vs. what
-   remains in the consumer's domain.
+Define whether nonce state is created on registration
+or first WebSocket connect, and whether the DO sends
+`{ type: 'nonce' }` as the first message.
+
+### 5. Certificate Lifecycle
+
+Define cert issuance callback interface, `cert_renew`
+task (who initiates, how cert reaches agent, how KV
+mapping updates), and `@kagal/ca` reference
+implementation.
+
+### 6. DO Worker Routing
+
+Resolved: `KagalGateway` dispatches requests to DOs.
+See [Gateway Routes](#gateway-routes).
+
+### 7. Deployment Topologies
+
+Document single-Worker (all-in-one) vs. multi-Worker
+(service binding) patterns and their trade-offs for
+upgrade isolation. The multi-Worker pattern uses
+`KAGAL_WORKER: Fetcher` service bindings; see
+Architecture Notes in AGENTS.md.
+
+### 8. Error Message Type
+
+Consider adding an `error` type to `ServerMessage`:
+`{ type: 'error'; code: string; message: string }`.
+Codes: `unknown_agent`, `rate_limited`,
+`protocol_error`, `version_mismatch`.
+
+### 9. Supervisor DO Scope
+
+Define what fleet-wide coordination the Supervisor DO
+handles vs. what remains in the consumer's domain.
 
 <!-- named references -->
 [worker-types]: packages/@kagal-worker/src/types.ts

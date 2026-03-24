@@ -1,41 +1,27 @@
-import { createKagalRouter } from '@kagal/server';
+import { KagalServer } from '@kagal/server';
 import { AutoRouter } from 'itty-router';
 
-import type { KagalRoute, KagalServerEnv } from '@kagal/server';
-import type { IttyRouterType, Route } from 'itty-router';
+import type { KagalServerEnv } from '@kagal/server';
 
 interface Env extends KagalServerEnv {
   FLEET_NAME: string
 }
 
-function registerRoute(
-  target: IttyRouterType,
-  route: KagalRoute<Env>,
-): void {
-  if (route.method === 'WS') return;
-
-  const method = route.method.toLowerCase() as keyof IttyRouterType;
-  const register = target[method] as Route | undefined;
-  if (register) {
-    register(route.path, (
-      request: Request,
-      env: Env,
-      context: ExecutionContext,
-    ) => route.handler(request, env, context));
-  }
-}
-
-const kagal = createKagalRouter<Env>();
+const kagal = new KagalServer<Env>();
 const router = AutoRouter();
 
-// Mount kagal routes
-for (const route of kagal.routes) {
-  registerRoute(router, route);
-}
+router.get('/health', async (_request: Request, env: Env) => {
+  const result = await kagal.health(env);
+  return Response.json(result, { status: result.ok ? 200 : 503 });
+});
 
-// Consumer routes
 router.get('/api/health', (_request: Request, env: Env) =>
   Response.json({ status: 'ok', fleet: env.FLEET_NAME }),
+);
+
+// Forward to gateway for DO routes
+router.all('/*', (request: Request, env: Env) =>
+  env.KAGAL_WORKER.fetch(request),
 );
 
 export default router;

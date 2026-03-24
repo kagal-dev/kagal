@@ -30,8 +30,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1))
       wrangler:
-        specifier: ^4.73.0
-        version: 4.73.0(@cloudflare/workers-types@4.20260313.1)
+        specifier: ^4.74.0
+        version: 4.74.0(@cloudflare/workers-types@4.20260317.1)
 
   apps/demo-hono:
     dependencies:
@@ -43,11 +43,17 @@ importers:
         version: 4.12.8
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
+      '@poupe/eslint-config':
+        specifier: ^0.8.3
+        version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
       wrangler:
-        specifier: ^4.73.0
-        version: 4.73.0(@cloudflare/workers-types@4.20260313.1)
+        specifier: ^4.74.0
+        version: 4.74.0(@cloudflare/workers-types@4.20260317.1)
 
   apps/demo-itty:
     dependencies:
@@ -59,11 +65,17 @@ importers:
         version: 5.0.23
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
+      '@poupe/eslint-config':
+        specifier: ^0.8.3
+        version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
       wrangler:
-        specifier: ^4.73.0
-        version: 4.73.0(@cloudflare/workers-types@4.20260313.1)
+        specifier: ^4.74.0
+        version: 4.74.0(@cloudflare/workers-types@4.20260317.1)
 
   apps/demo-vanilla:
     dependencies:
@@ -72,11 +84,17 @@ importers:
         version: link:../../packages/@kagal-server
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
+      '@poupe/eslint-config':
+        specifier: ^0.8.3
+        version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
       wrangler:
-        specifier: ^4.73.0
-        version: 4.73.0(@cloudflare/workers-types@4.20260313.1)
+        specifier: ^4.74.0
+        version: 4.74.0(@cloudflare/workers-types@4.20260317.1)
 
   apps/demo-worker:
     dependencies:
@@ -85,11 +103,17 @@ importers:
         version: link:../../packages/@kagal-worker
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
+      '@poupe/eslint-config':
+        specifier: ^0.8.3
+        version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
       wrangler:
-        specifier: ^4.73.0
-        version: 4.73.0(@cloudflare/workers-types@4.20260313.1)
+        specifier: ^4.74.0
+        version: 4.74.0(@cloudflare/workers-types@4.20260317.1)
 
   packages/@kagal-agent:
     dependencies:
@@ -174,15 +198,15 @@ importers:
         specifier: workspace:^
         version: link:../@kagal-worker
     devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.13.1
+        version: 0.13.1(@cloudflare/workers-types@4.20260317.1)(@vitest/runner@4.1.0)(@vitest/snapshot@4.1.0)(vitest@4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)))
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
       '@kagal/cross-test':
         specifier: ^0.1.2
         version: 0.1.2
-      '@kagal/test-utils':
-        specifier: workspace:^
-        version: link:../@kagal-test-utils
       '@poupe/eslint-config':
         specifier: ^0.8.3
         version: 0.8.3(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -233,10 +257,20 @@ importers:
         version: 4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1))
 
   packages/@kagal-worker:
+    dependencies:
+      defu:
+        specifier: ^6.1.4
+        version: 6.1.4
+      path-to-regexp:
+        specifier: ^6.3.0
+        version: 6.3.0
     devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.13.1
+        version: 0.13.1(@cloudflare/workers-types@4.20260317.1)(@vitest/runner@4.1.0)(@vitest/snapshot@4.1.0)(vitest@4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)))
       '@cloudflare/workers-types':
-        specifier: ^4.20260313.1
-        version: 4.20260313.1
+        specifier: ^4.20260317.1
+        version: 4.20260317.1
       '@kagal/cross-test':
         specifier: ^0.1.2
         version: 0.1.2
@@ -357,6 +391,13 @@ packages:
       workerd:
         optional: true
 
+  '@cloudflare/vitest-pool-workers@0.13.1':
+    resolution: {integrity: sha512-u4QSW/ORlL/fP1+6sdx1kqsnOjxC3vERU65guDdv3ju8r6gHfOf0Ss3PeF/aKNMrJjHYrXGkp2k1aPB6mC1eOw==}
+    peerDependencies:
+      '@vitest/runner': ^4.1.0
+      '@vitest/snapshot': ^4.1.0
+      vitest: ^4.1.0
+
   '@cloudflare/workerd-darwin-64@1.20260312.1':
     resolution: {integrity: sha512-HUAtDWaqUduS6yasV6+NgsK7qBpP1qGU49ow/Wb117IHjYp+PZPUGReDYocpB4GOMRoQlvdd4L487iFxzdARpw==}
     engines: {node: '>=16'}
@@ -387,8 +428,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@cloudflare/workers-types@4.20260313.1':
-    resolution: {integrity: sha512-jMEeX3RKfOSVqqXRKr/ulgglcTloeMzSH3FdzIfqJHtvc12/ELKd5Ldsg8ZHahKX/4eRxYdw3kbzb8jLXbq/jQ==}
+  '@cloudflare/workers-types@4.20260317.1':
+    resolution: {integrity: sha512-+G4eVwyCpm8Au1ex8vQBCuA9wnwqetz4tPNRoB/53qvktERWBRMQnrtvC1k584yRE3emMThtuY0gWshvSJ++PQ==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -1607,6 +1648,9 @@ packages:
   citty@0.2.1:
     resolution: {integrity: sha512-kEV95lFBhQgtogAPlQfJJ0WGVSokvLr/UEoFPiKKOXF7pl98HfUVUD0ejsuTCld/9xH9vogSywZ5KqHzXrZpqg==}
 
+  cjs-module-lexer@1.4.3:
+    resolution: {integrity: sha512-9z8TZaGM1pfswYeXrUpzPrkx8UnWYdhJclsiYMm6x/w5+nN+8Tf/LnAgfLGQCm59qAOxU8WwHEq2vNwF6i4j+Q==}
+
   clean-regexp@1.0.0:
     resolution: {integrity: sha512-GfisEZEJvzKrmGWkvfhgzcz/BllN1USeqD2V6tg14OAOgaCD2Z/PUEuxnAZ/nPvmaHRG7a8y77p1T/IRQ4D1Hw==}
     engines: {node: '>=4'}
@@ -2279,8 +2323,8 @@ packages:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
 
-  miniflare@4.20260312.0:
-    resolution: {integrity: sha512-pieP2rfXynPT6VRINYaiHe/tfMJ4c5OIhqRlIdLF6iZ9g5xgpEmvimvIgMpgAdDJuFlrLcwDUi8MfAo2R6dt/w==}
+  miniflare@4.20260312.1:
+    resolution: {integrity: sha512-YSWxec9ssisqkQgaCgcIQxZlB41E9hMiq1nxUgxXHRrE9NsfyC6ptSt8yfgBobsKIseAVKLTB/iEDpMumBv8oA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2959,8 +3003,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  wrangler@4.73.0:
-    resolution: {integrity: sha512-VJXsqKDFCp6OtFEHXITSOR5kh95JOknwPY8m7RyQuWJQguSybJy43m4vhoCSt42prutTef7eeuw7L4V4xiynGw==}
+  wrangler@4.74.0:
+    resolution: {integrity: sha512-3qprbhgdUyqYGHZ+Y1k0gsyHLMOlLrKL/HU0LDqLlCkbsKPprUA0/ThE4IZsxD84xAAXY6pv5JUuxS2+OnMa3A==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     peerDependencies:
@@ -2994,6 +3038,9 @@ packages:
 
   youch@4.1.0-beta.10:
     resolution: {integrity: sha512-rLfVLB4FgQneDr0dv1oddCVZmKjcJ6yX6mS4pU82Mq/Dt9a3cLZQ62pDBL4AUO+uVrCvtWz3ZFUL2HFAFJ/BXQ==}
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
@@ -3063,6 +3110,21 @@ snapshots:
     optionalDependencies:
       workerd: 1.20260312.1
 
+  '@cloudflare/vitest-pool-workers@0.13.1(@cloudflare/workers-types@4.20260317.1)(@vitest/runner@4.1.0)(@vitest/snapshot@4.1.0)(vitest@4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)))':
+    dependencies:
+      '@vitest/runner': 4.1.0
+      '@vitest/snapshot': 4.1.0
+      cjs-module-lexer: 1.4.3
+      esbuild: 0.27.3
+      miniflare: 4.20260312.1
+      vitest: 4.1.0(@types/node@20.19.37)(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1))
+      wrangler: 4.74.0(@cloudflare/workers-types@4.20260317.1)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@cloudflare/workers-types'
+      - bufferutil
+      - utf-8-validate
+
   '@cloudflare/workerd-darwin-64@1.20260312.1':
     optional: true
 
@@ -3078,7 +3140,7 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260312.1':
     optional: true
 
-  '@cloudflare/workers-types@4.20260313.1': {}
+  '@cloudflare/workers-types@4.20260317.1': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -3994,6 +4056,8 @@ snapshots:
 
   citty@0.2.1: {}
 
+  cjs-module-lexer@1.4.3: {}
+
   clean-regexp@1.0.0:
     dependencies:
       escape-string-regexp: 1.0.5
@@ -4847,7 +4911,7 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.1
 
-  miniflare@4.20260312.0:
+  miniflare@4.20260312.1:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.34.5
@@ -5525,18 +5589,18 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260312.1
       '@cloudflare/workerd-windows-64': 1.20260312.1
 
-  wrangler@4.73.0(@cloudflare/workers-types@4.20260313.1):
+  wrangler@4.74.0(@cloudflare/workers-types@4.20260317.1):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.4.2
       '@cloudflare/unenv-preset': 2.15.0(unenv@2.0.0-rc.24)(workerd@1.20260312.1)
       blake3-wasm: 2.1.5
       esbuild: 0.27.3
-      miniflare: 4.20260312.0
+      miniflare: 4.20260312.1
       path-to-regexp: 6.3.0
       unenv: 2.0.0-rc.24
       workerd: 1.20260312.1
     optionalDependencies:
-      '@cloudflare/workers-types': 4.20260313.1
+      '@cloudflare/workers-types': 4.20260317.1
       fsevents: 2.3.3
     transitivePeerDependencies:
       - bufferutil
@@ -5560,3 +5624,5 @@ snapshots:
       '@speed-highlight/core': 1.2.14
       cookie: 1.1.1
       youch-core: 0.3.3
+
+  zod@3.25.76: {}

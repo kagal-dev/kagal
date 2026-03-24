@@ -12,7 +12,7 @@ and configure the backing DO Worker.
 ```toml
 name = "my-fleet-do"
 main = "src/index.ts"
-compatibility_date = "2026-03-13"
+compatibility_date = "2026-03-12"
 compatibility_flags = ["nodejs_compat"]
 
 [[durable_objects.bindings]]
@@ -28,8 +28,8 @@ tag = "v1"
 new_sqlite_classes = ["KagalAgent", "KagalSupervisor"]
 
 [[kv_namespaces]]
-binding = "AGENT_INDEX"
-id = "<wrangler kv namespace create AGENT_INDEX>"
+binding = "KAGAL_REGISTRY"
+id = "<wrangler kv namespace create KAGAL_REGISTRY>"
 ```
 
 ### Frontend Worker
@@ -37,59 +37,46 @@ id = "<wrangler kv namespace create AGENT_INDEX>"
 ```toml
 name = "my-fleet-app"
 main = "src/index.ts"
-compatibility_date = "2026-03-13"
+compatibility_date = "2026-03-12"
 compatibility_flags = ["nodejs_compat"]
 
 # Service binding to the DO worker
 [[services]]
 binding = "KAGAL_WORKER"
 service = "my-fleet-do"
+
+# Direct KV read access for kagalAuth (mTLS identity)
+[[kv_namespaces]]
+binding = "KAGAL_REGISTRY"
+id = "<same KV namespace as the DO worker>"
 ```
-
-## Frontend: Nuxt 4 / Nitro
-
-```typescript
-// server/plugins/kagal.ts
-import { createKagalRouter } from '@kagal/server';
-
-const kagal = createKagalRouter();
-
-export default defineNitroPlugin((nitroApp) => {
-  for (const route of kagal.routes) {
-    if (route.method === 'WS') continue;
-    nitroApp.router.add(
-      `/kagal${route.path}`,
-      defineEventHandler(async (event) => {
-        return route.handler(
-          toWebRequest(event),
-          event.context.cloudflare.env,
-        );
-      }),
-      route.method,
-    );
-  }
-});
-```
-
-> **Note:** Use `toWebRequest(event)` — not
-> `event.node.req` — to get a standard `Request`
-> object on Cloudflare Workers.
 
 ## Frontend: Hono
 
 ```typescript
+import { KagalServer } from '@kagal/server';
 import { Hono } from 'hono';
-import { createKagalRouter } from '@kagal/server';
 
-const kagal = createKagalRouter();
-const app = new Hono();
+import type { KagalServerEnv } from '@kagal/server';
 
-for (const route of kagal.routes) {
-  if (route.method === 'WS') continue;
-  app.on(route.method, `/kagal${route.path}`, (c) =>
-    route.handler(c.req.raw, c.env, c.executionCtx),
-  );
+interface Env extends KagalServerEnv {
+  FLEET_NAME: string
 }
+
+const kagal = new KagalServer<Env>();
+const app = new Hono<{ Bindings: Env }>();
+
+app.get('/health', async (c) => {
+  const result = await kagal.health(c.env);
+  return c.json(result, result.ok ? 200 : 503);
+});
+
+app.get('/api/health', (c) =>
+  c.json({ status: 'ok', fleet: c.env.FLEET_NAME }),
+);
+
+// Forward to gateway for DO routes
+app.all('/*', (c) => c.env.KAGAL_WORKER.fetch(c.req.raw));
 
 export default app;
 ```
@@ -97,21 +84,31 @@ export default app;
 ## Frontend: itty-router
 
 ```typescript
-import { createKagalRouter } from '@kagal/server';
+import { KagalServer } from '@kagal/server';
 import { AutoRouter } from 'itty-router';
 
-const kagal = createKagalRouter();
+import type { KagalServerEnv } from '@kagal/server';
+
+interface Env extends KagalServerEnv {
+  FLEET_NAME: string
+}
+
+const kagal = new KagalServer<Env>();
 const router = AutoRouter();
 
-for (const route of kagal.routes) {
-  if (route.method === 'WS') continue;
-  const method = route.method.toLowerCase();
-  if (method in router) {
-    router[method](`/kagal${route.path}`, (request, env, context) =>
-      route.handler(request, env, context),
-    );
-  }
-}
+router.get('/health', async (_request: Request, env: Env) => {
+  const result = await kagal.health(env);
+  return Response.json(result, { status: result.ok ? 200 : 503 });
+});
+
+router.get('/api/health', (_request: Request, env: Env) =>
+  Response.json({ status: 'ok', fleet: env.FLEET_NAME }),
+);
+
+// Forward to gateway for DO routes
+router.all('/*', (request: Request, env: Env) =>
+  env.KAGAL_WORKER.fetch(request),
+);
 
 export default router;
 ```
@@ -119,8 +116,7 @@ export default router;
 ## Frontend: Raw Fetch
 
 See [`apps/demo-vanilla/src/index.ts`][demo-vanilla]
-for a minimal example using `kagal.handle()` as a
-catch-all.
+for a minimal example forwarding to the gateway.
 
 ## mTLS Setup (Consumer's Responsibility)
 
