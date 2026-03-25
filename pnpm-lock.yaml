@@ -125,8 +125,8 @@ importers:
         version: 3.4.2
     devDependencies:
       '@kagal/cross-test':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.1.3
+        version: 0.1.3
       '@poupe/eslint-config':
         specifier: ^0.8.4
         version: 0.8.4(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -162,8 +162,8 @@ importers:
         version: 2.11.0
     devDependencies:
       '@kagal/cross-test':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.1.3
+        version: 0.1.3
       '@poupe/eslint-config':
         specifier: ^0.8.4
         version: 0.8.4(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -205,8 +205,8 @@ importers:
         specifier: ^4.20260317.1
         version: 4.20260317.1
       '@kagal/cross-test':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.1.3
+        version: 0.1.3
       '@poupe/eslint-config':
         specifier: ^0.8.4
         version: 0.8.4(jiti@2.6.1)(typescript@5.9.3)(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.6.1)))
@@ -272,8 +272,8 @@ importers:
         specifier: ^4.20260317.1
         version: 4.20260317.1
       '@kagal/cross-test':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.1.3
+        version: 0.1.3
       '@kagal/test-utils':
         specifier: workspace:^
         version: link:../@kagal-test-utils
@@ -1139,8 +1139,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
-  '@kagal/cross-test@0.1.2':
-    resolution: {integrity: sha512-dw1042wWp7C3Xq89OxC1OpvmASLSOVVB04pmKQZnbaIwZbzN+61jRSJlavnNt38joiFJHknucwddj2S3tnXQow==}
+  '@kagal/cross-test@0.1.3':
+    resolution: {integrity: sha512-Ofoizl+AwmnhYbZO2d8MkNRlFaJmY7UXPqRPT/k9cDBq9H70EC6/X6gS9MdYaTBB1m9oSsz+dfi+NVS4wHyVYA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -3604,7 +3604,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kagal/cross-test@0.1.2': {}
+  '@kagal/cross-test@0.1.3': {}
 
   '@microsoft/tsdoc-config@0.18.1':
     dependencies:
