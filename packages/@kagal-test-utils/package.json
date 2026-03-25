@@ -31,7 +31,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@poupe/eslint-config": "^0.8.3",
+    "@poupe/eslint-config": "^0.8.4",
     "eslint": "^9.39.4",
     "npm-run-all2": "^8.0.4",
     "rimraf": "^6.1.3",
